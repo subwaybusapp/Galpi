@@ -1,9 +1,12 @@
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import { router } from "expo-router"; 
- 
+import { router } from "expo-router";
+import { useCards } from "../../context/CardContext";
+
 export default function HomeScreen() {
 
   const { width } = useWindowDimensions();
+
+  const { cards } = useCards();
 
   const cardWidth = width * 0.72;
   const sideSpace = (width - cardWidth) / 2
@@ -13,6 +16,24 @@ export default function HomeScreen() {
       <Text style={texts.text1}>나의 카드</Text>
 
       <View style={objects.card_section}>
+        {cards.map((card) => (
+          <Pressable
+            key={card.id}
+            accessibilityRole="button"
+            accessibilityLabel={`${card.name} 카드 상세 보기`}
+            style={objects.transport_card}
+            onPress={() => router.push(`/card-detail?id=${card.id}`)}
+          >
+            <Text style={texts.cardTitle}>{card.name}</Text>
+
+            <Text style={texts.cardSubtitle} numberOfLines={3}>
+              {card.routeSteps.length > 0
+                ? card.routeSteps.map((step) => step.name).join(" → ")
+                : "경로 정보 없음"}
+            </Text>
+          </Pressable>
+        ))}
+
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="교통카드 추가"
@@ -28,7 +49,7 @@ export default function HomeScreen() {
             </View>
           </View>
         </Pressable>
-      </View>   
+      </View>
     </View>
   );
 }
@@ -77,34 +98,55 @@ const objects = StyleSheet.create({
     justifyContent: "center",
     width: 70,
     height: 25,
-    backgroundColor: "#c2c2c2", 
+    backgroundColor: "#c2c2c2",
     borderRadius: 30,
     opacity: 0.7
-  }
+  },
+  transport_card: {
+    width: 214,
+    minHeight: 160,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    borderRadius: 16,
+    backgroundColor: "#111827",
+    justifyContent: "space-between",
+  },
 
 });
 const texts = StyleSheet.create({
-   text1: {
+  text1: {
     marginTop: 20,
     fontSize: 24,
     fontWeight: "700",
     textDecorationLine: "underline",
-   },
-   text2: {
+  },
+  text2: {
     fontSize: 13,
     fontWeight: "700",
     opacity: 0.7
-   },
-   emptycard_message: {
+  },
+  emptycard_message: {
     alignItems: "center",
     alignContent: "center"
-   },
-   plus: {
+  },
+  plus: {
     fontSize: 32,
     lineHeight: 36,
     fontWeight: "300",
     color: "rgba(0, 0, 0, 0.8)",
-   }
+  },
+  cardTitle: {
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "800",
+  },
+
+  cardSubtitle: {
+    color: "#D1D5DB",
+    fontSize: 13,
+    marginTop: 12,
+    lineHeight: 18,
+  },
 });
 
 /* (카드 생성 예시)
