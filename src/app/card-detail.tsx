@@ -44,7 +44,10 @@ export default function CardDetailScreen() {
           </Text>
         </View>
 
-        <View style={objects.cardHero}>
+        <View style={[
+          objects.cardHero,
+          {backgroundColor: card.color}
+          ]}>
           <Text style={texts.cardHeroTitle}>{card.name}</Text>
 
           <Text style={texts.cardHeroRoute} numberOfLines={3}>

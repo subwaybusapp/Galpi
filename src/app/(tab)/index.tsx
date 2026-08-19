@@ -21,7 +21,10 @@ export default function HomeScreen() {
             key={card.id}
             accessibilityRole="button"
             accessibilityLabel={`${card.name} 카드 상세 보기`}
-            style={objects.transport_card}
+            style={[
+              objects.transport_card,
+              {backgroundColor: card.color}
+            ]}
             onPress={() => router.push(`/card-detail?id=${card.id}`)}
           >
             <Text style={texts.cardTitle}>{card.name}</Text>
@@ -108,10 +111,9 @@ const objects = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 18,
     borderRadius: 16,
-    backgroundColor: "#111827",
+    borderWidth: 1.3,
     justifyContent: "space-between",
   },
-
 });
 const texts = StyleSheet.create({
   text1: {

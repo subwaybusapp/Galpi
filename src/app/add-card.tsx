@@ -1,9 +1,10 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, Switch } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, Switch, Alert } from "react-native";
 import type { MoveCard, RouteStep, RouteStepType } from '../types/card';
 import { useCards } from "../context/CardContext";
+import ColorPicker, { HueSlider, OpacitySlider, Panel1, Preview } from "reanimated-color-picker";
 
 export default function AddCardScreen() {
 
@@ -11,6 +12,8 @@ export default function AddCardScreen() {
 
   const [name, setName] = useState("");
   const [savedName, setSavedName] = useState("이름");
+  const [cardColor, setCardColor] = useState("rgba(213, 213, 214, 0.5)");
+  const [isColoredSelected, setIsColoredSelected] = useState(false);
   const [useRoute, setUseRoute] = useState(false);
 
   const [routeSteps, setRouteSteps] = useState<RouteStep[]>([]);
@@ -30,13 +33,14 @@ export default function AddCardScreen() {
 
   function handleSave() {
     if (!trimmedName) {
+      Alert.alert("카드 생성 필수조건을 입력해주세요!")
       return;
     }
 
     const newCard: MoveCard = {
       id: Date.now().toString(),
       name: trimmedName,
-      color: "#2F6BFF",
+      color: cardColor,
       icon: "bus",
       useRoute,
       routeSteps: useRoute ? routeSteps : [],
@@ -77,6 +81,10 @@ export default function AddCardScreen() {
     setStepDetail("");
     setStepMinutes("");
   }
+  function handleColorChange({ rgba }: { rgba: string }) {
+    setCardColor(rgba);
+    setIsColoredSelected(true);
+  }
 
   return (
     <ScrollView
@@ -97,7 +105,13 @@ export default function AddCardScreen() {
         <Text style={texts.title}>카드 생성</Text>
 
         <View style={objects.previewSection}>
-          <View style={objects.emptyCard}>
+          <View style={[
+            objects.emptyCard,
+            isColoredSelected && {
+              backgroundColor: cardColor,
+              borderStyle: "solid"
+            }
+            ]}>
             <Text selectable style={texts.cardName}>
               {previewName}
             </Text>
@@ -116,6 +130,48 @@ export default function AddCardScreen() {
             returnKeyType="done"
             style={objects.nameInput}
           />
+          <View>
+            <Text style={texts.label}>카드를 꾸며보세요</Text>
+            <ColorPicker
+              value={cardColor}
+
+              thumbSize={26}
+              boundedThumb
+              onChangeJS={handleColorChange}
+              style={{
+                width: "100%",
+                gap: 14,
+                marginTop: 10
+              }}
+            >
+              <Panel1
+                accessibilityLabel="카드 색상 채도와 밝기 선택"
+                style={{
+                  borderRadius: 15
+                }}
+              />
+              <HueSlider
+                accessibilityLabel="카드 색조 선택"
+                style={{
+                  borderRadius: 15
+                }}
+              />
+              <OpacitySlider
+                accessibilityLabel="카드 불투명도 선택"
+                style={{
+                  borderRadius: 15
+                }}
+              />
+              <Preview
+                hideInitialColor
+                colorFormat="hex"
+                style={{
+                  borderRadius: 15
+                }}
+              />
+
+            </ColorPicker>
+          </View>
           <View style={objects.routeToggleRow}>
             <View>
               <Text style={texts.sectionTitle}>경로 정보 추가</Text>
