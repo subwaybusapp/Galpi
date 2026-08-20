@@ -1,15 +1,19 @@
 export type RouteStepType = 'subway' | 'bus' | 'walk';
 
+export type SubwayDirection = '상행' | '하행' | '내선' | '외선';
+
 export type RouteStep = {
   id: string;
   type: RouteStepType;
   name: string;
   detail: string;
-  minutes?: number;
 
   lineName?: string;
+  subwayId?: string;
   stationName?: string;
-  direction?: string;
+  stationCode?: string;
+  subwayDirection?: SubwayDirection;
+
   busNumber?: string;
   busStopName?: string;
 };

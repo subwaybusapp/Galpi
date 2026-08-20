@@ -5,6 +5,9 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, Switch, Alert
 import type { MoveCard, RouteStep, RouteStepType } from '../types/card';
 import { useCards } from "../context/CardContext";
 import ColorPicker, { HueSlider, OpacitySlider, Panel1, Preview } from "reanimated-color-picker";
+import { getSubwayDirectionOptions, searchSubwayStations } from "../api/subwayApi";
+import type { SubwayDirectionOption, SubwayStation } from "../api/subwayApi";
+import { getSubwayLineBadgeText, getSubwayLineColor } from "../utils/subwayLineStyle";
 
 export default function AddCardScreen() {
 
@@ -20,16 +23,25 @@ export default function AddCardScreen() {
 
   const [stepType, setStepType] = useState<RouteStepType>('subway');
   const [stepName, setStepName] = useState('');
-  const [lineName, setLineName] = useState('');
   const [stepDetail, setStepDetail] = useState('');
-  const [stepMinutes, setStepMinutes] = useState('');
+  const [stationKeyword, setStationKeyword] = useState('');
+  const [stationResults, setStationResults] = useState<SubwayStation[]>([]);
+  const [selectedStation, setSelectedStation] = useState<SubwayStation | null>(null);
+  const [isSearchingStation, setIsSearchingStation] = useState(false);
+  const [directionOptions, setDirectionOptions] = useState<SubwayDirectionOption[]>([]);
+  const [selectedDirectionOption, setSelectedDirectionOption] =
+    useState<SubwayDirectionOption | null>(null);
+  const [isLoadingDirections, setIsLoadingDirections] = useState(false);
 
 
 
   const trimmedName = name.trim();
   const previewName = trimmedName || savedName;
   const trimmedStepName = stepName.trim();
-  const canAddRouteStep = !!trimmedStepName;
+  const canAddRouteStep =
+    stepType === 'subway'
+      ? !!selectedStation && !!selectedDirectionOption
+      : !!trimmedStepName;
 
   function handleSave() {
     if (!trimmedName) {
@@ -55,37 +67,96 @@ export default function AddCardScreen() {
     router.back();
   }
   function handleAddRouteStep() {
-    const trimmedStepDetail = stepDetail.trim();
-    const trimmedLineName = lineName.trim();
-
     if (!canAddRouteStep) {
       return;
     }
 
+    if (stepType === 'subway') {
+      if (!selectedStation || !selectedDirectionOption) {
+        return;
+      }
+
+      const nextStep: RouteStep = {
+        id: Date.now().toString(),
+        type: 'subway',
+        name: `${selectedStation.lineName} ${selectedStation.stationName}역`,
+        detail: selectedDirectionOption.label,
+        lineName: selectedStation.lineName,
+        subwayId: selectedStation.subwayId,
+        stationName: selectedStation.stationName,
+        stationCode: selectedStation.stationCode,
+        subwayDirection: selectedDirectionOption.direction,
+      };
+
+      setRouteSteps((prevSteps) => [...prevSteps, nextStep]);
+
+      setStationKeyword('');
+      setStationResults([]);
+      setSelectedStation(null);
+      setDirectionOptions([]);
+      setSelectedDirectionOption(null);
+
+      return;
+    }
+
+    const trimmedStepDetail = stepDetail.trim();
+
     const nextStep: RouteStep = {
       id: Date.now().toString(),
       type: stepType,
-      name:
-        stepType === 'subway' && trimmedLineName
-          ? `${trimmedLineName} ${trimmedStepName}`
-          : trimmedStepName,
+      name: trimmedStepName,
       detail: trimmedStepDetail,
-      minutes: stepMinutes ? Number(stepMinutes) : undefined,
-      lineName: stepType === 'subway' ? trimmedLineName : undefined,
-      stationName: stepType === 'subway' ? trimmedStepName : undefined,
     };
+
     setRouteSteps((prevSteps) => [...prevSteps, nextStep]);
 
-    setLineName("");
-    setStepName("");
-    setStepDetail("");
-    setStepMinutes("");
+    setStepName('');
+    setStepDetail('');
+  }
+  async function handleSearchStation() {
+    try {
+      setIsSearchingStation(true);
+
+      setSelectedStation(null);
+      setDirectionOptions([]);
+      setSelectedDirectionOption(null);
+
+      const results = await searchSubwayStations(stationKeyword);
+
+      setStationResults(results);
+    } catch (error) {
+      console.log('역 검색 실패:', error);
+      Alert.alert('역 검색에 실패했습니다.');
+    } finally {
+      setIsSearchingStation(false);
+    }
+  }
+  async function handleSelectStation(station: SubwayStation) {
+    try {
+      setSelectedStation(station);
+      setSelectedDirectionOption(null);
+      setDirectionOptions([]);
+      setIsLoadingDirections(true);
+
+      const options = await getSubwayDirectionOptions(
+        station.stationName,
+        station.lineName
+      );
+
+      console.log('방향 후보:', options);
+
+      setDirectionOptions(options);
+    } catch (error) {
+      console.log('방향 후보 조회 실패:', error);
+      Alert.alert('방향 후보 조회에 실패했습니다.');
+    } finally {
+      setIsLoadingDirections(false);
+    }
   }
   function handleColorChange({ rgba }: { rgba: string }) {
     setCardColor(rgba);
     setIsColoredSelected(true);
   }
-
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
@@ -111,7 +182,7 @@ export default function AddCardScreen() {
               backgroundColor: cardColor,
               borderStyle: "solid"
             }
-            ]}>
+          ]}>
             <Text selectable style={texts.cardName}>
               {previewName}
             </Text>
@@ -245,51 +316,153 @@ export default function AddCardScreen() {
               </View>
 
               {stepType === 'subway' && (
-                <TextInput
-                  style={objects.routeInput}
-                  placeholder="호선 예: 2호선"
-                  placeholderTextColor="#7D8797"
-                  value={lineName}
-                  onChangeText={setLineName}
-                />
+                <View style={objects.subwaySearchBox}>
+                  <TextInput
+                    style={objects.routeInput}
+                    placeholder="역 이름 검색 예: 강남"
+                    placeholderTextColor="#7D8797"
+                    value={stationKeyword}
+                    onChangeText={setStationKeyword}
+                  />
+
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="지하철 역 검색"
+                    onPress={handleSearchStation}
+                    style={objects.searchButton}
+                  >
+                    <Text style={texts.searchButtonLabel}>
+                      {isSearchingStation ? '검색 중...' : '역 검색'}
+                    </Text>
+                  </Pressable>
+
+                  {stationResults.map((station) => {
+                    const isSelected =
+                      selectedStation?.stationCode === station.stationCode &&
+                      selectedStation?.lineName === station.lineName;
+
+                    return (
+                      <Pressable
+                        key={`${station.lineName}-${station.stationName}-${station.stationCode}`}
+                        style={[
+                          objects.stationResultButton,
+                          isSelected && objects.stationResultButtonActive,
+                        ]}
+                        onPress={() => handleSelectStation(station)}
+                      >
+                        <Text
+                          style={[
+                            texts.stationResultTitle,
+                            isSelected && texts.stationResultTitleActive,
+                          ]}
+                        >
+                          {station.lineName} {station.stationName}역
+                        </Text>
+
+                        <Text style={texts.stationResultMeta}>
+                          역 코드 {station.stationCode ?? '정보 없음'}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                  {selectedStation ? (
+                    <View style={objects.directionSection}>
+                      <View style={objects.selectedStationPill}>
+                        <View
+                          style={[
+                            objects.selectedStationBadge,
+                            { backgroundColor: getSubwayLineColor(selectedStation.lineName) },
+                          ]}
+                        >
+                          <Text style={texts.selectedStationBadgeText}>
+                            {getSubwayLineBadgeText(selectedStation.lineName)}
+                          </Text>
+                        </View>
+
+                        <View style={objects.selectedStationTextBox}>
+                          <Text style={texts.selectedStationLabel}>선택된 역</Text>
+                          <Text style={texts.selectedStationName}>
+                            {selectedStation.lineName} {selectedStation.stationName}역
+                          </Text>
+                        </View>
+                      </View>
+
+                      <Text style={texts.directionTitle}>방향 선택</Text>
+
+                      {isLoadingDirections ? (
+                        <Text style={texts.stationResultMeta}>방향 후보 불러오는 중...</Text>
+                      ) : null}
+
+                      {selectedStation && !isLoadingDirections && directionOptions.length === 0 ? (
+                        <Text style={texts.stationResultMeta}>
+                          선택 가능한 방향 후보가 없습니다.
+                        </Text>
+                      ) : null}
+
+                      {directionOptions.map((option) => {
+                        const isSelected = selectedDirectionOption?.label === option.label;
+
+                        return (
+                          <Pressable
+                            key={option.label}
+                            style={[
+                              objects.directionOptionButton,
+                              isSelected && objects.directionOptionButtonActive,
+                            ]}
+                            onPress={() => setSelectedDirectionOption(option)}
+                          >
+                            <Text
+                              style={[
+                                texts.directionOptionTitle,
+                                isSelected && texts.directionOptionTitleActive,
+                              ]}
+                            >
+                              {option.label}
+                            </Text>
+
+                            <Text
+                              style={[
+                                texts.directionOptionMeta,
+                                isSelected && texts.directionOptionMetaActive,
+                              ]}
+                            >
+                              행선지 {option.destination}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  ) : null}
+                </View>
               )}
+              {stepType !== 'subway' ? (
+                <>
+                  <TextInput
+                    style={objects.routeInput}
+                    placeholder={
+                      stepType === 'bus'
+                        ? '버스 번호/정류장 예: 146번'
+                        : '도보 구간 예: 집에서 상봉역'
+                    }
+                    placeholderTextColor="#7D8797"
+                    value={stepName}
+                    onChangeText={setStepName}
+                  />
 
-              <TextInput
-                style={objects.routeInput}
-                placeholder={
-                  stepType === 'subway'
-                    ? '역 이름 예: 강남역'
-                    : stepType === 'bus'
-                      ? '버스 번호/정류장 예: 146번'
-                      : '도보 구간 예: 집에서 상봉역'
-                }
-                placeholderTextColor="#7D8797"
-                value={stepName}
-                onChangeText={setStepName}
-              />
+                  <TextInput
+                    style={objects.routeInput}
+                    placeholder={
+                      stepType === 'bus'
+                        ? '설명 예: 강남역 정류장 승차'
+                        : '설명 예: 약 5분 이동'
+                    }
+                    placeholderTextColor="#7D8797"
+                    value={stepDetail}
+                    onChangeText={setStepDetail}
+                  />
+                </>
+              ) : null}
 
-              <TextInput
-                style={objects.routeInput}
-                placeholder={
-                  stepType === 'subway'
-                    ? '방향 예: 홍대입구 방면'
-                    : stepType === 'bus'
-                      ? '설명 예: 강남역 정류장 승차'
-                      : '설명 예: 약 5분 이동'
-                }
-                placeholderTextColor="#7D8797"
-                value={stepDetail}
-                onChangeText={setStepDetail}
-              />
-
-              <TextInput
-                style={objects.routeInput}
-                placeholder="예상 소요시간 예: 18"
-                placeholderTextColor="#7D8797"
-                value={stepMinutes}
-                onChangeText={setStepMinutes}
-                keyboardType="number-pad"
-              />
 
               <Pressable
                 accessibilityRole="button"
@@ -311,18 +484,38 @@ export default function AddCardScreen() {
 
                   {routeSteps.map((step, index) => (
                     <View key={step.id} style={objects.routeStepItem}>
-                      <View style={objects.routeStepBadge}>
-                        <Text style={texts.routeStepBadgeText}>{index + 1}</Text>
+                      <View
+                        style={[
+                          objects.routeStepBadge,
+                          step.type === 'subway' && {
+                            backgroundColor: getSubwayLineColor(step.lineName),
+                          },
+                        ]}
+                      >
+                        <Text style={texts.routeStepBadgeText}>
+                          {step.type === 'subway'
+                            ? getSubwayLineBadgeText(step.lineName)
+                            : index + 1}
+                        </Text>
                       </View>
 
                       <View style={objects.routeStepContent}>
-                        <Text style={texts.routeStepName}>{step.name}</Text>
+                        <View style={objects.routeStepTitleRow}>
+                          <Text style={texts.routeStepName}>{step.name}</Text>
+
+                          {step.type === 'subway' ? (
+                            <Ionicons
+                              name="train-outline"
+                              size={30}
+                              color="#6B7280"
+                            />
+                          ) : null}
+                        </View>
+
                         <Text style={texts.routeStepDetail}>{step.detail}</Text>
                       </View>
 
-                      {step.minutes ? (
-                        <Text style={texts.routeStepMinutes}>{step.minutes}분</Text>
-                      ) : null}
+
                     </View>
                   ))}
                 </View>
@@ -487,18 +680,100 @@ const objects = StyleSheet.create({
   },
 
   routeStepBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#2F6BFF",
+    backgroundColor: "#111827",
+    borderWidth: 2,
+    borderColor: "transparent",
   },
 
   routeStepContent: {
     flex: 1,
     gap: 2,
   },
+  subwaySearchBox: {
+    gap: 8,
+  },
+
+  searchButton: {
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    backgroundColor: "#111827",
+  },
+  stationResultButton: {
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
+    gap: 4,
+  },
+
+  stationResultButtonActive: {
+    borderColor: "#2563EB",
+    backgroundColor: "#EFF6FF",
+  },
+  routeStepTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  directionSection: {
+    marginTop: 8,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: "#F7F8FA",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    gap: 10,
+  },
+
+  directionHeader: {
+    gap: 2,
+  },
+
+  directionOptionButton: {
+    padding: 13,
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    gap: 4,
+  },
+
+  directionOptionButtonActive: {
+    backgroundColor: "#111827",
+    borderColor: "#111827",
+  },
+  selectedStationPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#DDE3EA",
+    gap: 10,
+  },
+
+  selectedStationBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  selectedStationTextBox: {
+    flex: 1,
+    gap: 2,
+  }
 });
 
 const texts = StyleSheet.create({
@@ -550,7 +825,7 @@ const texts = StyleSheet.create({
   },
   routeStepBadgeText: {
     color: "#FFFFFF",
-    fontSize: 12,
+    fontSize: 18,
     fontWeight: "900",
   },
 
@@ -570,6 +845,74 @@ const texts = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
   },
+  searchButtonLabel: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  stationResultTitle: {
+    color: "#111827",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+
+  stationResultTitleActive: {
+    color: "#2563EB",
+  },
+
+  stationResultMeta: {
+    color: "#6B7280",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  directionTitle: {
+    color: "#111827",
+    fontSize: 15,
+    fontWeight: "900",
+  },
+
+  directionSubtitle: {
+    color: "#6B7280",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  directionOptionTitle: {
+    color: "#111827",
+    fontSize: 14,
+    fontWeight: "900",
+  },
+
+  directionOptionTitleActive: {
+    color: "#FFFFFF",
+  },
+
+  directionOptionMeta: {
+    color: "#6B7280",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+
+  directionOptionMetaActive: {
+    color: "#D1D5DB",
+  },
+  selectedStationLabel: {
+    color: "#6B7280",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+
+  selectedStationName: {
+    color: "#111827",
+    fontSize: 15,
+    fontWeight: "900",
+  },
+
+  selectedStationBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "900",
+  }
 });
 
 
