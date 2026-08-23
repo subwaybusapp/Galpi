@@ -56,3 +56,33 @@ npx expo install @react-native-async-storage/async-storage
     
     -> 유저의 로그인 유지 기록을 앱에 저장 (자동로그인)
     -> AsyncStorage에 네 이메일/비밀번호를 직접 저장하는 게 아니라, Firebase Auth가 로그인 세션을 유지 (인증만)
+
+
+<2026 - 08 - 22> -장재혁-
+
+npx expo install fast-xml-parser
+
+    -> XML 파일을 읽을 수 있게 해주는 역할
+
+
+[card-detail.tsx (line 25)](C:\\Users\\user\\portfolio\\transport-app\\src\\app\\card-detail.tsx:25) — 1초 타이머
+[card-detail.tsx (line 152)](C:\\Users\\user\\portfolio\\transport-app\\src\\app\\card-detail.tsx:152) — 30초 API 갱신
+[card-detail.tsx (line 298)](C:\\Users\\user\\portfolio\\transport-app\\src\\app\\card-detail.tsx:298) — 도착정보 화면
+[card-detail.tsx (line 554)](C:\\Users\\user\\portfolio\\transport-app\\src\\app\\card-detail.tsx:554) — 분·초 계산
+[seoulBusArrivalApi.ts (line 128)](C:\\Users\\user\\portfolio\\transport-app\\src\\api\\seoulBusArrivalApi.ts:128) — API 조회 시각 저장
+
+1. API 호출 
+   ↓
+2. API에서 남은 시간 300초를 받음
+   ↓
+3. 동시에 휴대폰 현재 시각을 fetchedAt에 저장
+   ↓
+4. 휴대폰에서 매초 남은 시간 계산
+   ↓
+5. 30초 후 API를 다시 호출
+   ↓
+6. 새 남은 시간과 새 휴대폰 시각을 저장
+   ↓
+7. 새 값을 기준으로 다시 계산
+
+결론적으로 현재는 사용자가 올바른 승차 방향을 눌러야 해. 하지만 이후에는 출발지와 목적지를 먼저 입력받은 다음, 가능한 승차 순번 < 하차 순번 조합이 하나뿐이면 앱이 방향을 자동 선택하게 만드는 게 가장 덜 헷갈려.

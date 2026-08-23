@@ -5,9 +5,14 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, Switch, Alert
 import type { MoveCard, RouteStep, RouteStepType } from '../types/card';
 import { useCards } from "../context/CardContext";
 import ColorPicker, { HueSlider, OpacitySlider, Panel1, Preview } from "reanimated-color-picker";
+//지하철
 import { getSubwayDirectionOptions, searchSubwayStations } from "../api/subwayApi";
 import type { SubwayDirectionOption, SubwayStation } from "../api/subwayApi";
 import { getSubwayLineBadgeText, getSubwayLineColor } from "../utils/subwayLineStyle";
+//버스정류장
+import { BusStop, searchBusStop } from "../api/busStopApi"; // 수도권 제외
+import { getSeoulBusRouteStops, searchSeoulBusRoutes } from "@/api/seoulBusApi"; // 수도권
+import type { SeoulBusRoute, SeoulBusRouteStop } from "@/api/seoulBusApi";
 
 export default function AddCardScreen() {
 
@@ -20,7 +25,7 @@ export default function AddCardScreen() {
   const [useRoute, setUseRoute] = useState(false);
 
   const [routeSteps, setRouteSteps] = useState<RouteStep[]>([]);
-
+  //지하철
   const [stepType, setStepType] = useState<RouteStepType>('subway');
   const [stepName, setStepName] = useState('');
   const [stepDetail, setStepDetail] = useState('');
@@ -32,16 +37,54 @@ export default function AddCardScreen() {
   const [selectedDirectionOption, setSelectedDirectionOption] =
     useState<SubwayDirectionOption | null>(null);
   const [isLoadingDirections, setIsLoadingDirections] = useState(false);
-
-
+  //버스
+  const [busKeyword, setBusKeyWord] = useState("");
+  const [busStopResults, setBusStopResults] = useState<BusStop[]>([]);
+  const [selectBusStop, setSelectedBusStop] = useState<BusStop | null>(null);
+  const [isSearchingBusStop, setIsSearchingBusStop] = useState(false);
+  //버스 수도권
+  const [seoulBusRouteResults, setSeoulBusRouteResults] = useState<SeoulBusRoute[]>([]);
+  const [selectedSeoulBusRoute, setSelectedSeoulBusRoute] = useState<SeoulBusRoute | null>(null);
+  const [seoulBusRouteStops, setSeoulBusRouteStops] = useState<SeoulBusRouteStop[]>([]);
+  const [boardingStopKeyword, setBoardingStopKeyword] = useState("");
+  const [alightingStopKeyword, setAlightingStopKeyword] = useState("");
+  const [selectedBoardingStop, setSelectedBoardingStop] = useState<SeoulBusRouteStop | null>(null);
+  const [selectedAlightingStop, setSelectedAlightingStop] = useState<SeoulBusRouteStop | null>(null);
+  const [isLoadingSeoulBusRouteStops, setIsLoadingSeoulBusRouteStops] = useState(false);
+  //도보
+  const [walkDetail, setWalkDetail] = useState("");
 
   const trimmedName = name.trim();
   const previewName = trimmedName || savedName;
   const trimmedStepName = stepName.trim();
+  const canSearchSeoulBusRoute =
+    !!busKeyword.trim() &&
+    !!boardingStopKeyword.trim() &&
+    !!alightingStopKeyword.trim();
   const canAddRouteStep =
     stepType === 'subway'
       ? !!selectedStation && !!selectedDirectionOption
-      : !!trimmedStepName;
+      : stepType === 'bus'
+        ? !!selectedSeoulBusRoute && !!selectedBoardingStop && !!selectedAlightingStop
+        : !!trimmedStepName;
+
+  const boardingStopResults = boardingStopKeyword.trim()
+    ? seoulBusRouteStops
+        .filter((stop) => stop.stationNm.includes(boardingStopKeyword.trim()))
+        .slice(0, 20)
+    : [];
+
+  const alightingStopResults =
+    selectedBoardingStop && alightingStopKeyword.trim()
+      ? seoulBusRouteStops
+          .filter((stop) => {
+            return (
+              stop.stationNm.includes(alightingStopKeyword.trim()) &&
+              Number(stop.seq) > Number(selectedBoardingStop.seq)
+            );
+          })
+          .slice(0, 20)
+      : [];
 
   function handleSave() {
     if (!trimmedName) {
@@ -95,6 +138,47 @@ export default function AddCardScreen() {
       setSelectedStation(null);
       setDirectionOptions([]);
       setSelectedDirectionOption(null);
+
+      return;
+    }
+
+    if (stepType === 'bus') {
+      if (
+        !selectedSeoulBusRoute ||
+        !selectedBoardingStop ||
+        !selectedAlightingStop
+      ) {
+        return;
+      }
+
+      const nextStep: RouteStep = {
+        id: Date.now().toString(),
+        type: 'bus',
+        name: selectedSeoulBusRoute.busRouteNm,
+        detail: `${selectedBoardingStop.stationNm} → ${selectedAlightingStop.stationNm}`,
+        busNumber: selectedSeoulBusRoute.busRouteNm,
+        busStopName: selectedBoardingStop.stationNm,
+        busRouteId: selectedSeoulBusRoute.busRouteId,
+        boardingStopName: selectedBoardingStop.stationNm,
+        boardingStopId: selectedBoardingStop.station,
+        boardingStopArsId: selectedBoardingStop.arsId,
+        boardingStopOrder: Number(selectedBoardingStop.seq),
+        alightingStopName: selectedAlightingStop.stationNm,
+        alightingStopId: selectedAlightingStop.station,
+        alightingStopArsId: selectedAlightingStop.arsId,
+        alightingStopOrder: Number(selectedAlightingStop.seq),
+      };
+
+      setRouteSteps((prevSteps) => [...prevSteps, nextStep]);
+
+      setBusKeyWord('');
+      setSeoulBusRouteResults([]);
+      setSelectedSeoulBusRoute(null);
+      setSeoulBusRouteStops([]);
+      setBoardingStopKeyword('');
+      setAlightingStopKeyword('');
+      setSelectedBoardingStop(null);
+      setSelectedAlightingStop(null);
 
       return;
     }
@@ -153,6 +237,92 @@ export default function AddCardScreen() {
       setIsLoadingDirections(false);
     }
   }
+  //버스 수도권 제외
+  async function handleSearchBusStop() {
+    try {
+      setIsSearchingBusStop(true);
+
+      const rusults = await searchBusStop(busKeyword);
+      setBusStopResults(rusults);
+    } catch (error) {
+      console.log("버스정류장 검색 실패:", error)
+    } finally {
+      setIsSearchingBusStop(false);
+    }
+  }
+  //버스 수도권
+  async function handleSearchSeoulBusRoute() {
+    if (!canSearchSeoulBusRoute) {
+      return;
+    }
+
+    try {
+      setIsSearchingBusStop(true);
+
+      setSelectedSeoulBusRoute(null);
+      setSeoulBusRouteStops([]);
+      setSelectedBoardingStop(null);
+      setSelectedAlightingStop(null);
+
+      const routes = await searchSeoulBusRoutes(busKeyword);
+      setSeoulBusRouteResults(routes);
+
+      console.log("add-card에 저장된 서울노선:", routes);
+    } catch (error) {
+      console.log(
+        "서울 버스 노선 검색 실패:",
+        error
+      );
+    } finally {
+      setIsSearchingBusStop(false);
+    }
+  }
+
+  async function handleSelectSeoulBusRoute(route: SeoulBusRoute) {
+    try {
+      setSelectedSeoulBusRoute(route);
+      setSeoulBusRouteStops([]);
+      setSelectedBoardingStop(null);
+      setSelectedAlightingStop(null);
+      setIsLoadingSeoulBusRouteStops(true);
+
+      const stops = await getSeoulBusRouteStops(route.busRouteId);
+      setSeoulBusRouteStops(stops);
+    } catch (error) {
+      console.log("서울 버스 노선별 정류장 조회 실패:", error);
+      Alert.alert("버스 정류장 목록을 불러오지 못했습니다.");
+    } finally {
+      setIsLoadingSeoulBusRouteStops(false);
+    }
+  }
+
+  function handleSelectBoardingStop(stop: SeoulBusRouteStop) {
+    setSelectedBoardingStop(stop);
+    setBoardingStopKeyword(stop.stationNm);
+    setSelectedAlightingStop(null);
+  }
+
+  function handleSelectAlightingStop(stop: SeoulBusRouteStop) {
+    if (
+      selectedBoardingStop &&
+      Number(stop.seq) <= Number(selectedBoardingStop.seq)
+    ) {
+      Alert.alert("하차 정류장은 승차 정류장 이후에서 선택해 주세요.");
+      return;
+    }
+
+    setSelectedAlightingStop(stop);
+    setAlightingStopKeyword(stop.stationNm);
+  }
+
+  //도보
+  function handleWalkMemo() {
+    return(
+      <>
+      </>
+    )
+  }
+
   function handleColorChange({ rgba }: { rgba: string }) {
     setCardColor(rgba);
     setIsColoredSelected(true);
@@ -316,7 +486,7 @@ export default function AddCardScreen() {
               </View>
 
               {stepType === 'subway' && (
-                <View style={objects.subwaySearchBox}>
+                <View style={objects.transportSearchBoxBox}>
                   <TextInput
                     style={objects.routeInput}
                     placeholder="역 이름 검색 예: 강남"
@@ -435,33 +605,221 @@ export default function AddCardScreen() {
                   ) : null}
                 </View>
               )}
-              {stepType !== 'subway' ? (
-                <>
+              {stepType === 'bus' && (
+                <View style={objects.transportSearchBoxBox}>
                   <TextInput
                     style={objects.routeInput}
-                    placeholder={
-                      stepType === 'bus'
-                        ? '버스 번호/정류장 예: 146번'
-                        : '도보 구간 예: 집에서 상봉역'
-                    }
+                    placeholder={"버스 번호 검색 예: 2230"}
                     placeholderTextColor="#7D8797"
-                    value={stepName}
-                    onChangeText={setStepName}
+                    value={busKeyword}
+                    onChangeText={setBusKeyWord}
                   />
+                  <TextInput
+                    style={objects.routeInput}
+                    placeholder={"승차 정류장 이름"}
+                    placeholderTextColor="#7D8797"
+                    value={boardingStopKeyword}
+                    onChangeText={(value) => {
+                      setBoardingStopKeyword(value);
+                      setSelectedBoardingStop(null);
+                      setSelectedAlightingStop(null);
+                    }}
+                  />
+                  <TextInput
+                    style={objects.routeInput}
+                    placeholder={"하차 정류장 이름"}
+                    placeholderTextColor="#7D8797"
+                    value={alightingStopKeyword}
+                    onChangeText={(value) => {
+                      setAlightingStopKeyword(value);
+                      setSelectedAlightingStop(null);
+                    }}
+                  />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="서울 버스 노선 검색"
+                    accessibilityState={{ disabled: !canSearchSeoulBusRoute }}
+                    disabled={!canSearchSeoulBusRoute}
+                    onPress={handleSearchSeoulBusRoute}
+                    style={[
+                      objects.searchButton,
+                      !canSearchSeoulBusRoute && objects.addRouteButtonDisabled,
+                    ]}
+                    >
+                    <Text style={texts.searchButtonLabel}>
+                      {isSearchingBusStop ? '검색 중...' : '버스 검색'}
+                    </Text>
+                  </Pressable>
 
+                  {seoulBusRouteResults.map((route) => {
+                    const isSelected =
+                      selectedSeoulBusRoute?.busRouteId === route.busRouteId;
+
+                    return (
+                      <Pressable
+                        key={route.busRouteId}
+                        style={[
+                          objects.stationResultButton,
+                          isSelected && objects.stationResultButtonActive,
+                        ]}
+                        onPress={() => handleSelectSeoulBusRoute(route)}
+                      >
+                        <Text
+                          style={[
+                            texts.stationResultTitle,
+                            isSelected && texts.stationResultTitleActive,
+                          ]}
+                        >
+                          {route.busRouteNm}
+                        </Text>
+
+                        <Text style={texts.stationResultMeta}>
+                          {route.stStationNm} → {route.edStationNm}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+
+                  {selectedSeoulBusRoute ? (
+                    <View style={objects.directionSection}>
+                      <View style={objects.selectedStationPill}>
+                        <View
+                          style={[
+                            objects.selectedStationBadge,
+                            { backgroundColor: '#2563EB' },
+                          ]}
+                        >
+                          <Text style={texts.selectedStationBadgeText}>버스</Text>
+                        </View>
+
+                        <View style={objects.selectedStationTextBox}>
+                          <Text style={texts.selectedStationLabel}>선택한 노선</Text>
+                          <Text style={texts.selectedStationName}>
+                            {selectedSeoulBusRoute.busRouteNm}
+                          </Text>
+                          <Text style={texts.stationResultMeta}>
+                            {selectedSeoulBusRoute.stStationNm} → {selectedSeoulBusRoute.edStationNm}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {isLoadingSeoulBusRouteStops ? (
+                        <Text style={texts.stationResultMeta}>
+                          노선 정류장 불러오는 중...
+                        </Text>
+                      ) : (
+                        <>
+                          <Text style={texts.directionTitle}>승차 정류장</Text>
+
+                          {boardingStopResults.map((stop) => {
+                            const isSelected =
+                              selectedBoardingStop?.station === stop.station &&
+                              selectedBoardingStop?.seq === stop.seq;
+
+                            return (
+                              <Pressable
+                                key={`boarding-${stop.station}-${stop.seq}`}
+                                style={[
+                                  objects.stationResultButton,
+                                  isSelected && objects.stationResultButtonActive,
+                                ]}
+                                onPress={() => handleSelectBoardingStop(stop)}
+                              >
+                                <Text
+                                  style={[
+                                    texts.stationResultTitle,
+                                    isSelected && texts.stationResultTitleActive,
+                                  ]}
+                                >
+                                  {stop.stationNm}
+                                </Text>
+                                <Text style={texts.stationResultMeta}>
+                                  {stop.arsId || stop.stationNo || '정류장 번호 없음'} · {stop.direction} 방향
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+
+                          {boardingStopKeyword.trim() && boardingStopResults.length === 0 ? (
+                            <Text style={texts.stationResultMeta}>
+                              이 노선에서 일치하는 승차 정류장을 찾지 못했습니다.
+                            </Text>
+                          ) : null}
+
+                          {selectedBoardingStop ? (
+                            <>
+                              <Text style={texts.directionTitle}>하차 정류장</Text>
+
+                              {alightingStopResults.map((stop) => {
+                                const isSelected =
+                                  selectedAlightingStop?.station === stop.station &&
+                                  selectedAlightingStop?.seq === stop.seq;
+
+                                return (
+                                  <Pressable
+                                    key={`alighting-${stop.station}-${stop.seq}`}
+                                    style={[
+                                      objects.stationResultButton,
+                                      isSelected && objects.stationResultButtonActive,
+                                    ]}
+                                    onPress={() => handleSelectAlightingStop(stop)}
+                                  >
+                                    <Text
+                                      style={[
+                                        texts.stationResultTitle,
+                                        isSelected && texts.stationResultTitleActive,
+                                      ]}
+                                    >
+                                      {stop.stationNm}
+                                    </Text>
+                                    <Text style={texts.stationResultMeta}>
+                                      {stop.arsId || stop.stationNo || '정류장 번호 없음'} · {stop.direction} 방향
+                                    </Text>
+                                  </Pressable>
+                                );
+                              })}
+
+                              {alightingStopKeyword.trim() && alightingStopResults.length === 0 ? (
+                                <Text style={texts.stationResultMeta}>
+                                  승차 정류장 이후에서 일치하는 하차 정류장을 찾지 못했습니다.
+                                </Text>
+                              ) : null}
+                            </>
+                          ) : null}
+                        </>
+                      )}
+                    </View>
+                  ) : null}
+                </View>
+              )}
+              {stepType === 'walk' && (
+                <View style={objects.transportSearchBoxBox}>
                   <TextInput
                     style={objects.routeInput}
-                    placeholder={
-                      stepType === 'bus'
-                        ? '설명 예: 강남역 정류장 승차'
-                        : '설명 예: 약 5분 이동'
-                    }
+                    placeholder={"걷기 정보 세부사항 예: 앞으로 쭉 걷기"}
                     placeholderTextColor="#7D8797"
-                    value={stepDetail}
-                    onChangeText={setStepDetail}
+                    value={walkDetail}
+                    onChangeText={setWalkDetail}
                   />
-                </>
-              ) : null}
+                  <Pressable
+                    onPress={handleWalkMemo}
+                    style={objects.searchButton}
+                    >
+                    <Text style={texts.searchButtonLabel}>
+                      메모 저장
+                    </Text>
+                  </Pressable>
+                  {busStopResults.map((busStop) => (
+                    <Pressable
+                      key={busStop.id}
+                      onPress={() => setSelectedBusStop(busStop)}
+                    >
+                      <Text>{busStop.name}</Text>
+                      <Text>{busStop.number}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
 
 
               <Pressable
@@ -536,10 +894,6 @@ export default function AddCardScreen() {
           >
             <Text style={texts.saveButtonLabel}>저장</Text>
           </Pressable>
-
-          <Text selectable style={texts.helperText}>
-            저장된 이름: {savedName}
-          </Text>
         </View>
       </View>
     </ScrollView>
@@ -694,7 +1048,7 @@ const objects = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
-  subwaySearchBox: {
+  transportSearchBoxBox: {
     gap: 8,
   },
 
@@ -912,7 +1266,7 @@ const texts = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "900",
-  }
+  },
 });
 
 

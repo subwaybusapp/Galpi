@@ -6,6 +6,7 @@ import { getSubwayLineBadgeText, getSubwayLineColor } from "../utils/subwayLineS
 import { useEffect, useState } from "react";
 import { getNextSubwaySchedule, getSubwayArrivals } from "../api/subwayApi";
 import type { SubwayArrival, SubwaySchedule } from "../api/subwayApi";
+import { getSeoulBusArrival, type SeoulBusArrival } from "@/api/seoulBusArrivalApi";
 
 
 
@@ -16,6 +17,19 @@ export default function CardDetailScreen() {
   const [arrivalMap, setArrivalMap] = useState<Record<string, SubwayArrival[]>>({});
   const [isLoadingArrivals, setIsLoadingArrivals] = useState(false);
   const [scheduleMap, setScheduleMap] = useState<Record<string, SubwaySchedule | null>>({});
+  const [busArrivalMap, setBusArrivalMap] = useState<Record<string, SeoulBusArrival | null>>({});
+  const [isLoadingBusArrivals, setIsLoadingBusArrivals] = useState(false);
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  useEffect(() => {
+    const countdownTimer = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+
+    return () => {
+      clearInterval(countdownTimer);
+    };
+  }, []);
 
   useEffect(() => {
     if (!card) {
@@ -76,6 +90,74 @@ export default function CardDetailScreen() {
     loadSubwayArrivals();
   }, [card]);
 
+  useEffect(() => {
+    if (!card) {
+      return;
+    }
+
+    let isActive = true;
+    const currentCard = card;
+
+    async function loadBusArrivals(showLoading: boolean) {
+      try {
+        if (showLoading && isActive) {
+          setIsLoadingBusArrivals(true);
+        }
+
+        const busSteps = currentCard.routeSteps.filter(
+          (step) =>
+            step.type === "bus" &&
+            step.boardingStopId &&
+            step.busRouteId &&
+            step.boardingStopOrder !== undefined
+        );
+
+        if (busSteps.length === 0) {
+          if (isActive) {
+            setBusArrivalMap({});
+          }
+          return;
+        }
+
+        const entries = await Promise.all(
+          busSteps.map(async (step) => {
+            const arrival = await getSeoulBusArrival(
+              step.boardingStopId!,
+              step.busRouteId!,
+              step.boardingStopOrder!
+            );
+
+            return [step.id, arrival] as const;
+          })
+        );
+
+        if (isActive) {
+          setBusArrivalMap(Object.fromEntries(entries));
+          setCurrentTime(Date.now());
+        }
+      } catch (error) {
+        console.log(
+          "서울 버스 도착정보 조회 실패:",
+          error
+        );
+      } finally {
+        if (showLoading && isActive) {
+          setIsLoadingBusArrivals(false);
+        }
+      }
+    }
+
+    loadBusArrivals(true);
+
+    const refreshTimer = setInterval(() => {
+      loadBusArrivals(false);
+    }, 30000);
+
+    return () => {
+      isActive = false;
+      clearInterval(refreshTimer);
+    };
+  }, [card]);
 
   if (!card) {
     return (
@@ -112,7 +194,10 @@ export default function CardDetailScreen() {
           </Text>
         </View>
 
-        <View style={[objects.cardHero, { backgroundColor: card.color }]}>
+        <View style={[
+          objects.cardHero,
+          { backgroundColor: card.color }
+        ]}>
           <Text style={texts.cardHeroTitle}>{card.name}</Text>
 
           <Text style={texts.cardHeroRoute} numberOfLines={3}>
@@ -136,37 +221,61 @@ export default function CardDetailScreen() {
                     },
                   ]}
                 >
-                  <Text style={texts.routeStepBadgeText}>
+                  <Text
+                    style={[
+                      texts.routeStepBadgeText,
+                      step.type === "bus" &&
+                        texts.busRouteStepBadgeText,
+                    ]}
+                  >
                     {step.type === 'subway'
                       ? getSubwayLineBadgeText(step.lineName)
+                      : step.type === "bus"
+                      ? step.busNumber ?? step.name
                       : index + 1}
                   </Text>
                 </View>
 
                 <View style={objects.routeStepContent}>
                   <View style={objects.routeStepTitleRow}>
-                    <Text style={texts.routeStepName}>{step.name}</Text>
-
+                    <Text style={texts.routeStepName}>
+                      {step.type === "bus"
+                        ? `${step.busNumber ?? step.name} · ${
+                            step.boardingStopName ??
+                            step.busStopName ??
+                            "승차 정류장"
+                          } 승차`
+                        : step.name}
+                    </Text>
                     {step.type === "subway" ? (
                       <Ionicons name="train-outline" size={30} color="#6B7280" />
-                    ) : null}
+                    ) : step.type === "bus" ? (
+                      <Ionicons name="bus-outline" size={30} color="#6B7280" />
+                    ): null}
                   </View>
 
                   <Text style={texts.routeStepDetail}>{step.detail}</Text>
                   {step.type === "subway" ? (
                     <View style={objects.arrivalBox}>
                       <Text style={texts.arrivalLabel}>
-                        {isLoadingArrivals ? "실시간 도착정보 불러오는 중..." : "실시간 도착정보"}
+                        {isLoadingArrivals
+                          ? "실시간 도착정보 불러오는 중..."
+                          : "실시간 도착정보"}
                       </Text>
 
                       {arrivalMap[step.id]?.length > 0 ? (
                         arrivalMap[step.id].slice(0, 2).map((arrival, index) => (
-                          <Text key={`${arrival.trainLineName}-${index}`} style={texts.arrivalText}>
+                          <Text
+                            key={`${arrival.trainLineName}-${index}`}
+                            style={texts.arrivalText}
+                          >
                             {formatArrivalTime(arrival)} · {arrival.trainLineName}
                           </Text>
                         ))
                       ) : !isLoadingArrivals ? (
-                        <Text style={texts.arrivalEmptyText}>현재 도착정보가 없습니다.</Text>
+                        <Text style={texts.arrivalEmptyText}>
+                          현재 도착정보가 없습니다.
+                        </Text>
                       ) : null}
 
                       {!isLoadingArrivals && scheduleMap[step.id] ? (
@@ -174,12 +283,47 @@ export default function CardDetailScreen() {
                           다음 예정 출발 {scheduleMap[step.id]?.label}
                         </Text>
                       ) : null}
+                    </View>
+                  ) : step.type === "bus" ? (
+                    <View style={objects.arrivalBox}>
+                      <Text style={texts.arrivalLabel}>
+                        {isLoadingBusArrivals
+                          ? "버스 도착정보 불러오는 중..."
+                          : "도착정보"}
+                      </Text>
 
+                      {busArrivalMap[step.id] ? (
+                        <>
+                          <Text selectable style={texts.arrivalText}>
+                            첫 번째 버스 ·{" "}
+                            <Text style={texts.arrivalEmptyText2}>
+                              {formatBusArrivalDisplay(
+                                busArrivalMap[step.id]!,
+                                "first",
+                                currentTime
+                              )}
+                            </Text>
+                          </Text>
+
+                          <Text selectable style={texts.arrivalText}>
+                            두 번째 버스 ·{" "}
+                            <Text style={texts.arrivalEmptyText2}>
+                              {formatBusArrivalDisplay(
+                                busArrivalMap[step.id]!,
+                                "second",
+                                currentTime
+                              )}
+                            </Text>
+                          </Text>
+                        </>
+                      ) : !isLoadingBusArrivals ? (
+                        <Text style={texts.arrivalEmptyText}>
+                          현재 버스 도착정보가 없습니다.
+                        </Text>
+                      ) : null}
                     </View>
                   ) : null}
-                </View>
-
-
+                </View> 
               </View>
             ))
           ) : (
@@ -345,11 +489,22 @@ const texts = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
   },
+  arrivalEmptyText2: {
+    color: "#cf1313",
+    fontSize: 12,
+    fontWeight: "600",
+    fontVariant: ["tabular-nums"],
+  },
   scheduleText: {
     color: "#2563EB",
     fontSize: 12,
     fontWeight: "800",
-  }
+  },
+  busRouteStepBadgeText: {
+    fontSize: 13,
+    lineHeight: 12,
+    letterSpacing: -0.5
+  },
 });
 function formatArrivalTime(arrival: SubwayArrival) {
   if (arrival.remainingSeconds > 0) {
@@ -395,4 +550,56 @@ function shouldLoadScheduleFallback(arrivals: SubwayArrival[]) {
         arrival.arrivalMessage.includes("출발"))
     );
   });
+}
+function formatBusArrivalDisplay(
+  arrival: SeoulBusArrival,
+  order: "first" | "second",
+  currentTime: number
+) {
+  const initialSeconds =
+    order === "first"
+      ? arrival.firstArrivalSeconds
+      : arrival.secondArrivalSeconds;
+
+  const originalMessage =
+    order === "first"
+      ? arrival.firstMessage
+      : arrival.secondMessage;
+
+  const stopInfo =
+    originalMessage.match(/\[(.*?)\]/)?.[1] ?? "";
+
+  let timeText: string;
+
+  if (initialSeconds > 0) {
+    const elapsedSeconds = Math.max(
+      0,
+      Math.floor((currentTime - arrival.fetchedAt) / 1000)
+    );
+
+    const remainingSeconds = Math.max(
+      0,
+      initialSeconds - elapsedSeconds
+    );
+
+    if (remainingSeconds === 0) {
+      timeText = "곧 도착";
+    } else {
+      const minutes = Math.floor(remainingSeconds / 60);
+      const seconds = remainingSeconds % 60;
+
+      timeText =
+        minutes > 0
+          ? `${minutes}분 ${seconds}초 후`
+          : `${seconds}초 후`;
+    }
+  } else {
+    timeText =
+      originalMessage.replace(/\[.*?\]/, "").trim() ||
+      "도착정보 없음";
+  }
+
+  return stopInfo
+    ? `${timeText} · ${stopInfo}`
+    : timeText;
 }
