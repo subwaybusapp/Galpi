@@ -16,6 +16,17 @@ export type RouteStep = {
 
   busNumber?: string;
   busStopName?: string;
+  busRouteId?: string;
+
+  boardingStopName?: string;
+  boardingStopId?: string;
+  boardingStopArsId?: string;
+  boardingStopOrder?: number;
+
+  alightingStopName?: string;
+  alightingStopId?: string;
+  alightingStopArsId?: string;
+  alightingStopOrder?: number;
 };
 
 export type MoveCard = {

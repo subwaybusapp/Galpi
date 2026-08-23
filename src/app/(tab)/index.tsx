@@ -23,7 +23,7 @@ export default function HomeScreen() {
             accessibilityLabel={`${card.name} 카드 상세 보기`}
             style={[
               objects.transport_card,
-              { backgroundColor: card.color }
+              {backgroundColor: card.color}
             ]}
             onPress={() => router.push(`/card-detail?id=${card.id}`)}
           >
@@ -114,7 +114,6 @@ const objects = StyleSheet.create({
     borderWidth: 1.3,
     justifyContent: "space-between",
   },
-
 });
 const texts = StyleSheet.create({
   text1: {
