@@ -2,11 +2,17 @@ import { subwayLineStations } from "../data/subwayLineStations";
 type SubwayDirection = "상행" | "하행" | "내선" | "외선";
 
 const directionByIncreasingIndex: Record<string, SubwayDirection> = {
+    "1호선": "상행",
     "2호선": "내선",
+    "3호선": "하행",
+    "4호선": "하행",
+    "5호선": "상행",
+    "6호선": "상행",
     "7호선": "상행",
     "8호선": "상행",
-    "5호선": "상행",
-    "4호선": "하행",
+    "9호선": "하행"
+   
+    
 };
 
 function getOppositeDirection(direction: SubwayDirection): SubwayDirection {

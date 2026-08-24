@@ -130,7 +130,7 @@ export default function AddCardScreen() {
         id: Date.now().toString(),
         type: 'subway',
         name: `${selectedStation.lineName} ${selectedStation.stationName}역 → ${selectedDestinationStation.stationName}역`,
-        detail: `${selectedDirectionOption.label} · 하차 ${selectedDestinationStation.stationName}역`,
+        detail: selectedDirectionOption.label,
         lineName: selectedStation.lineName,
         subwayId: selectedStation.subwayId,
         stationName: selectedStation.stationName,
@@ -332,7 +332,7 @@ export default function AddCardScreen() {
     const nextDirectionOption: SubwayDirectionOption = {
       direction,
       destination: station.stationName,
-      label: `${direction} · ${station.stationName} 방면`,
+      label: `${station.stationName}역 방면`,
     };
 
     setDirectionOptions([nextDirectionOption]);
@@ -718,7 +718,7 @@ export default function AddCardScreen() {
                                     isSelected && texts.directionOptionTitleActive,
                                   ]}
                                 >
-                                  {option.direction}
+                                  {option.label}
                                 </Text>
 
                                 <Text
@@ -727,7 +727,7 @@ export default function AddCardScreen() {
                                     isSelected && texts.directionOptionMetaActive,
                                   ]}
                                 >
-                                  {selectedStation.stationName}역에서 {selectedDestinationStation.stationName}역 방향
+                                  {selectedStation.stationName}역 → {selectedDestinationStation.stationName}역
                                 </Text>
                               </Pressable>
                             );
