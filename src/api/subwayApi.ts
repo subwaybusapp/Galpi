@@ -1,3 +1,5 @@
+import { canTrainReachDestination } from "../utils/subwayRouteUtils";
+
 export type SubwayStation = {
     stationName: string;
     lineName: string;
@@ -13,6 +15,7 @@ export type SubwayArrival = {
     trainLineName: string;
     arrivalMessage: string;
     remainingSeconds: number;
+    fetchedAt: number;
 };
 export type SubwayDirectionOption = {
     direction: '상행' | '하행' | '내선' | '외선';
@@ -84,6 +87,8 @@ export async function getSubwayArrivals(
 
     const rows = data.realtimeArrivalList ?? [];
 
+    const fetchedAt = Date.now();
+
     return rows.map((row: any) => ({
         subwayId: row.subwayId,
         lineName: row.subwayId,
@@ -92,83 +97,15 @@ export async function getSubwayArrivals(
         trainLineName: row.trainLineNm,
         arrivalMessage: row.arvlMsg2,
         remainingSeconds: Number(row.barvlDt ?? 0),
+        fetchedAt,
     }));
 }
-export async function getSubwayDirectionOptions(
-    stationName: string,
-    lineName: string
-): Promise<SubwayDirectionOption[]> {
-    const trimmedStationName = stationName.trim().replace(/역$/, '');
-    const normalizedLineName = normalizeLineName(lineName);
 
-    if (!trimmedStationName || !normalizedLineName) {
-        return [];
-    }
-
-    const directions: SubwayDirectionOption['direction'][] = [
-        '상행',
-        '하행',
-        '내선',
-        '외선',
-    ];
-
-    const allRows: any[] = [];
-
-    for (const direction of directions) {
-        const url = `http://openapi.seoul.go.kr:8088/${SEOUL_API_KEY}/json/getTrainSch/1/100/%20/N/${encodeURIComponent(direction)}/%ED%8F%89%EC%9D%BC/${encodeURIComponent(normalizedLineName)}`;
-
-        const response = await fetch(url);
-
-        if (!response.ok) {
-            throw new Error('지하철 방향 후보 조회에 실패했습니다.');
-        }
-
-        const data = await response.json();
-
-        console.log(`${direction} 시간표 응답:`, data);
-
-        const items = data.response?.body?.items?.item;
-
-        if (Array.isArray(items)) {
-            allRows.push(...items);
-        } else if (items) {
-            allRows.push(items);
-        }
-    }
-
-    const stationRows = allRows.filter((row: any) => {
-        return (
-            row.stnNm === trimmedStationName &&
-            normalizeLineName(row.lineNm) === normalizedLineName
-        );
-    });
-
-    const optionMap = new Map<string, SubwayDirectionOption>();
-
-    stationRows.forEach((row: any) => {
-        const direction = normalizeDirection(row.upbdnbSe);
-        const destination = row.arvlStnNm;
-
-        if (!direction || !destination) {
-            return;
-        }
-
-        const key = `${direction}-${destination}`;
-
-        optionMap.set(key, {
-            direction,
-            destination,
-            label: `${direction} · ${destination}행`,
-        });
-    });
-
-    return Array.from(optionMap.values());
-}
 export async function getNextSubwaySchedule(
     stationName: string,
     lineName: string,
     direction: string,
-    destination: string
+    destinationStationName: string
 ): Promise<SubwaySchedule | null> {
     const trimmedStationName = stationName.trim().replace(/역$/, '');
     const normalizedLineName = normalizeLineName(lineName);
@@ -213,7 +150,12 @@ export async function getNextSubwaySchedule(
                 row.stnNm === trimmedStationName &&
                 normalizeLineName(row.lineNm) === normalizedLineName &&
                 row.upbdnbSe === direction &&
-                (!destination || row.arvlStnNm === destination)
+                canTrainReachDestination({
+                    lineName: normalizedLineName,
+                    boardingStationName: trimmedStationName,
+                    destinationStationName,
+                    trainLineName: `${row.arvlStnNm}행`,
+                })
             );
         })
         .map((row: any) => ({

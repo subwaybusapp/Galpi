@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { getNextSubwaySchedule, getSubwayArrivals } from "../api/subwayApi";
 import type { SubwayArrival, SubwaySchedule } from "../api/subwayApi";
 import { getSeoulBusArrival, type SeoulBusArrival } from "@/api/seoulBusArrivalApi";
+import { canTrainReachDestination } from "../utils/subwayRouteUtils";
 
 
 
@@ -31,20 +32,33 @@ export default function CardDetailScreen() {
     };
   }, []);
 
+  // 지하철
   useEffect(() => {
     if (!card) {
       return;
     }
 
+    let isActive = true;
     const currentCard = card;
 
-    async function loadSubwayArrivals() {
+    async function loadSubwayArrivals(showLoading: boolean) {
       try {
-        setIsLoadingArrivals(true);
+        if (showLoading && isActive) {
+          setIsLoadingArrivals(true);
+        }
 
         const subwaySteps = currentCard.routeSteps.filter(
           (step) => step.type === "subway" && step.stationName
         );
+
+        if (subwaySteps.length === 0) {
+          if (isActive) {
+            setArrivalMap({});
+            setScheduleMap({});
+          }
+
+          return;
+        }
 
         const arrivalEntries: Array<readonly [string, SubwayArrival[]]> = [];
         const scheduleEntries: Array<readonly [string, SubwaySchedule | null]> = [];
@@ -56,7 +70,13 @@ export default function CardDetailScreen() {
             const filteredArrivals = arrivals.filter((arrival) => {
               return (
                 arrival.subwayId === step.subwayId &&
-                arrival.updnLine === step.subwayDirection
+                arrival.updnLine === step.subwayDirection &&
+                canTrainReachDestination({
+                  lineName: step.lineName ?? "",
+                  boardingStationName: step.stationName ?? "",
+                  destinationStationName: step.destinationStationName ?? "",
+                  trainLineName: arrival.trainLineName,
+                })
               );
             });
 
@@ -67,7 +87,7 @@ export default function CardDetailScreen() {
                 step.stationName!,
                 step.lineName ?? "",
                 step.subwayDirection ?? "",
-                extractDestinationFromDetail(step.detail)
+                step.destinationStationName ?? ""
               );
 
               scheduleEntries.push([step.id, schedule]);
@@ -77,19 +97,32 @@ export default function CardDetailScreen() {
           })
         );
 
-        setArrivalMap(Object.fromEntries(arrivalEntries));
-        setScheduleMap(Object.fromEntries(scheduleEntries));
-
+        if (isActive) {
+          setArrivalMap(Object.fromEntries(arrivalEntries));
+          setScheduleMap(Object.fromEntries(scheduleEntries));
+          setCurrentTime(Date.now());
+        }
       } catch (error) {
         console.log("실시간 도착정보 조회 실패:", error);
       } finally {
-        setIsLoadingArrivals(false);
+        if (showLoading && isActive) {
+          setIsLoadingArrivals(false);
+        }
       }
     }
 
-    loadSubwayArrivals();
-  }, [card]);
+    loadSubwayArrivals(true);
 
+    const refreshTimer = setInterval(() => {
+      loadSubwayArrivals(false);
+    }, 30000);
+
+    return () => {
+      isActive = false;
+      clearInterval(refreshTimer);
+    };
+  }, [card]);
+  //버스
   useEffect(() => {
     if (!card) {
       return;
@@ -225,105 +258,138 @@ export default function CardDetailScreen() {
                     style={[
                       texts.routeStepBadgeText,
                       step.type === "bus" &&
-                        texts.busRouteStepBadgeText,
+                      texts.busRouteStepBadgeText,
                     ]}
                   >
                     {step.type === 'subway'
                       ? getSubwayLineBadgeText(step.lineName)
                       : step.type === "bus"
-                      ? step.busNumber ?? step.name
-                      : index + 1}
+                        ? step.busNumber ?? step.name
+                        : index + 1}
                   </Text>
                 </View>
 
                 <View style={objects.routeStepContent}>
-                  <View style={objects.routeStepTitleRow}>
-                    <Text style={texts.routeStepName}>
-                      {step.type === "bus"
-                        ? `${step.busNumber ?? step.name} · ${
-                            step.boardingStopName ??
-                            step.busStopName ??
-                            "승차 정류장"
-                          } 승차`
-                        : step.name}
-                    </Text>
+                  <View style={objects.routeHeaderRow}>
+                    <View>
+                      <Text style={texts.routeStepLabel}>승차</Text>
+                      <Text style={texts.routeStepName}>
+                        {step.type === "bus"
+                          ? step.boardingStopName ?? step.busStopName ?? "승차 정류장"
+                          : step.stationName
+                            ? `${step.stationName}역`
+                            : step.name}
+                      </Text>
+                    </View>
+
                     {step.type === "subway" ? (
-                      <Ionicons name="train-outline" size={30} color="#6B7280" />
+                      <View style={objects.transportTypePill}>
+                        <Ionicons name="train-outline" size={16} color="#2563EB" />
+                        <Text style={texts.transportTypeText}>{step.lineName}</Text>
+                      </View>
                     ) : step.type === "bus" ? (
-                      <Ionicons name="bus-outline" size={30} color="#6B7280" />
-                    ): null}
+                      <View style={objects.transportTypePill}>
+                        <Ionicons name="bus-outline" size={16} color="#2563EB" />
+                        <Text style={texts.transportTypeText}>
+                          {step.busNumber ?? "버스"}
+                        </Text>
+                      </View>
+                    ) : null}
                   </View>
 
-                  <Text style={texts.routeStepDetail}>{step.detail}</Text>
-                  {step.type === "subway" ? (
-                    <View style={objects.arrivalBox}>
-                      <Text style={texts.arrivalLabel}>
-                        {isLoadingArrivals
-                          ? "실시간 도착정보 불러오는 중..."
-                          : "실시간 도착정보"}
-                      </Text>
+                  <View style={objects.routeLineArea}>
+                    <View style={objects.routeVerticalLine} />
 
-                      {arrivalMap[step.id]?.length > 0 ? (
-                        arrivalMap[step.id].slice(0, 2).map((arrival, index) => (
-                          <Text
-                            key={`${arrival.trainLineName}-${index}`}
-                            style={texts.arrivalText}
-                          >
-                            {formatArrivalTime(arrival)} · {arrival.trainLineName}
+                    <View style={objects.routeMiddleContent}>
+                      <Text style={texts.routeStepDetail}>{step.detail}</Text>
+
+                      {step.type === "subway" ? (
+                        <View style={objects.arrivalBox}>
+                          <Text style={texts.arrivalLabel}>
+                            {isLoadingArrivals
+                              ? "실시간 도착정보 불러오는 중..."
+                              : "실시간 도착정보"}
                           </Text>
-                        ))
-                      ) : !isLoadingArrivals ? (
-                        <Text style={texts.arrivalEmptyText}>
-                          현재 도착정보가 없습니다.
-                        </Text>
-                      ) : null}
 
-                      {!isLoadingArrivals && scheduleMap[step.id] ? (
-                        <Text style={texts.scheduleText}>
-                          다음 예정 출발 {scheduleMap[step.id]?.label}
-                        </Text>
+                          {arrivalMap[step.id]?.length > 0 ? (
+                            arrivalMap[step.id].slice(0, 2).map((arrival, index) => (
+                              <Text
+                                key={`${arrival.trainLineName}-${index}`}
+                                style={texts.arrivalText}
+                              >
+                                {formatArrivalTime(arrival, currentTime)} · {arrival.trainLineName}
+                              </Text>
+                            ))
+                          ) : !isLoadingArrivals ? (
+                            <Text style={texts.arrivalEmptyText}>
+                              현재 도착정보가 없습니다.
+                            </Text>
+                          ) : null}
+
+                          {!isLoadingArrivals && scheduleMap[step.id] ? (
+                            <Text style={texts.scheduleText}>
+                              다음 예정 출발 {scheduleMap[step.id]?.label}
+                            </Text>
+                          ) : null}
+                        </View>
+                      ) : step.type === "bus" ? (
+                        <View style={objects.arrivalBox}>
+                          <Text style={texts.arrivalLabel}>
+                            {isLoadingBusArrivals
+                              ? "실시간 도착정보 불러오는 중..."
+                              : "실시간 도착정보"}
+                          </Text>
+
+                          {busArrivalMap[step.id] ? (
+                            <>
+                              <Text selectable style={texts.arrivalText}>
+                                첫 번째 버스 ·{" "}
+                                <Text style={texts.arrivalText}>
+                                  {formatBusArrivalDisplay(
+                                    busArrivalMap[step.id]!,
+                                    "first",
+                                    currentTime
+                                  )}
+                                </Text>
+                              </Text>
+
+                              <Text selectable style={texts.arrivalText}>
+                                두 번째 버스 ·{" "}
+                                <Text style={texts.arrivalText}>
+                                  {formatBusArrivalDisplay(
+                                    busArrivalMap[step.id]!,
+                                    "second",
+                                    currentTime
+                                  )}
+                                </Text>
+                              </Text>
+                            </>
+                          ) : !isLoadingBusArrivals ? (
+                            <Text style={texts.arrivalEmptyText}>
+                              현재 버스 도착정보가 없습니다.
+                            </Text>
+                          ) : null}
+                        </View>
                       ) : null}
                     </View>
-                  ) : step.type === "bus" ? (
-                    <View style={objects.arrivalBox}>
-                      <Text style={texts.arrivalLabel}>
-                        {isLoadingBusArrivals
-                          ? "버스 도착정보 불러오는 중..."
-                          : "도착정보"}
-                      </Text>
+                  </View>
 
-                      {busArrivalMap[step.id] ? (
-                        <>
-                          <Text selectable style={texts.arrivalText}>
-                            첫 번째 버스 ·{" "}
-                            <Text style={texts.arrivalEmptyText2}>
-                              {formatBusArrivalDisplay(
-                                busArrivalMap[step.id]!,
-                                "first",
-                                currentTime
-                              )}
-                            </Text>
-                          </Text>
+                  {(step.type === "subway" && step.destinationStationName) ||
+                    (step.type === "bus" && step.alightingStopName) ? (
+                    <View style={objects.destinationRow}>
+                      <View style={objects.destinationDot} />
 
-                          <Text selectable style={texts.arrivalText}>
-                            두 번째 버스 ·{" "}
-                            <Text style={texts.arrivalEmptyText2}>
-                              {formatBusArrivalDisplay(
-                                busArrivalMap[step.id]!,
-                                "second",
-                                currentTime
-                              )}
-                            </Text>
-                          </Text>
-                        </>
-                      ) : !isLoadingBusArrivals ? (
-                        <Text style={texts.arrivalEmptyText}>
-                          현재 버스 도착정보가 없습니다.
+                      <View>
+                        <Text style={texts.routeStepLabel}>하차</Text>
+                        <Text style={texts.destinationText}>
+                          {step.type === "subway"
+                            ? `${step.destinationStationName}역`
+                            : step.alightingStopName}
                         </Text>
-                      ) : null}
+                      </View>
                     </View>
                   ) : null}
-                </View> 
+                </View>
               </View>
             ))
           ) : (
@@ -417,6 +483,60 @@ const objects = StyleSheet.create({
     backgroundColor: "#F3F6FA",
     gap: 4,
   },
+  routeHeaderRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+
+  transportTypePill: {
+    minHeight: 30,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: "#EFF6FF",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+
+  routeLineArea: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 8,
+  },
+
+  routeVerticalLine: {
+    width: 3,
+    borderRadius: 999,
+    backgroundColor: "#CBD5E1",
+    marginLeft: 19,
+  },
+
+  routeMiddleContent: {
+    flex: 1,
+    gap: 8,
+  },
+
+  destinationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
+  },
+
+  destinationDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 3,
+    borderColor: "#2563EB",
+    marginLeft: 13,
+  }
 });
 
 const texts = StyleSheet.create({
@@ -479,21 +599,15 @@ const texts = StyleSheet.create({
   },
 
   arrivalText: {
-    color: "#111827",
+    color: "#cf1313",
     fontSize: 12,
     fontWeight: "800",
+    fontVariant: ["tabular-nums"]
   },
-
   arrivalEmptyText: {
-    color: "#9CA3AF",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  arrivalEmptyText2: {
     color: "#cf1313",
     fontSize: 12,
     fontWeight: "600",
-    fontVariant: ["tabular-nums"],
   },
   scheduleText: {
     color: "#2563EB",
@@ -505,17 +619,46 @@ const texts = StyleSheet.create({
     lineHeight: 12,
     letterSpacing: -0.5
   },
-});
-function formatArrivalTime(arrival: SubwayArrival) {
-  if (arrival.remainingSeconds > 0) {
-    const minutes = Math.floor(arrival.remainingSeconds / 60);
-    const seconds = arrival.remainingSeconds % 60;
+  routeStepLabel: {
+    color: "#9CA3AF",
+    fontSize: 11,
+    fontWeight: "800",
+  },
 
-    if (minutes > 0) {
-      return `${minutes}분 ${seconds}초 후`;
+  transportTypeText: {
+    color: "#2563EB",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+
+  destinationText: {
+    color: "#111827",
+    fontSize: 15,
+    fontWeight: "900",
+  }
+});
+function formatArrivalTime(arrival: SubwayArrival, currentTime: number) {
+  if (arrival.remainingSeconds > 0) {
+    const elapsedSeconds = Math.max(
+      0,
+      Math.floor((currentTime - arrival.fetchedAt) / 1000)
+    );
+
+    const remainingSeconds = Math.max(
+      0,
+      arrival.remainingSeconds - elapsedSeconds
+    );
+
+    if (remainingSeconds === 0) {
+      return "곧 도착";
     }
 
-    return `${seconds}초 후`;
+    const minutes = Math.floor(remainingSeconds / 60);
+    const seconds = remainingSeconds % 60;
+
+    return minutes > 0
+      ? `${minutes}분 ${seconds}초 후`
+      : `${seconds}초 후`;
   }
 
   return formatArrivalMessage(arrival.arrivalMessage);
@@ -532,24 +675,21 @@ function formatArrivalMessage(message: string) {
 
   return message;
 }
-function extractDestinationFromDetail(detail: string) {
-  const parts = detail.split("·");
-  const destinationPart = parts[1]?.trim() ?? "";
 
-  return destinationPart.replace(/행$/, "");
-}
 function shouldLoadScheduleFallback(arrivals: SubwayArrival[]) {
   if (arrivals.length === 0) {
     return true;
   }
 
-  return arrivals.some((arrival) => {
+  const hasUsefulRealtimeInfo = arrivals.some((arrival) => {
     return (
-      arrival.remainingSeconds === 0 &&
-      (arrival.arrivalMessage.includes("도착") ||
-        arrival.arrivalMessage.includes("출발"))
+      arrival.remainingSeconds > 0 ||
+      arrival.arrivalMessage.includes("전역") ||
+      arrival.arrivalMessage.includes("진입")
     );
   });
+
+  return !hasUsefulRealtimeInfo;
 }
 function formatBusArrivalDisplay(
   arrival: SeoulBusArrival,

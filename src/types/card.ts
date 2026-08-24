@@ -13,6 +13,8 @@ export type RouteStep = {
   stationName?: string;
   stationCode?: string;
   subwayDirection?: SubwayDirection;
+  destinationStationName?: string;
+  destinationStationCode?: string;
 
   busNumber?: string;
   busStopName?: string;
