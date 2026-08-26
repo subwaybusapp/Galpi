@@ -38,4 +38,5 @@ export type MoveCard = {
   icon: string;
   useRoute: boolean;
   routeSteps: RouteStep[];
+  isBookmarked: boolean;
 };

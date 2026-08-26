@@ -5,6 +5,8 @@ type CardContextValue = {
   cards: MoveCard[];
   addCard: (card: MoveCard) => void;
   getCardById: (id: string) => MoveCard | undefined;
+  toggleBookmark: (id: string) => void;
+  deleteCard: (id: string) => void;
 };
 
 const CardContext = createContext<CardContextValue | null>(null);
@@ -24,8 +26,26 @@ export function CardProvider({ children }: Props) {
     return cards.find((card) => card.id === id);
   }
 
+  function toggleBookmark(id: string) {
+    setCards((prevCards) => 
+      prevCards.map((card) => 
+        card.id === id  
+          ? { ...card, isBookmarked: !card.isBookmarked}
+        : card
+      )
+    )
+  }
+
+  function deleteCard(id: string) {
+    setCards((prevCards) =>
+      prevCards.filter((card) => card.id !== id)
+    );
+  }
+
   return (
-    <CardContext.Provider value={{ cards, addCard, getCardById }}>
+    <CardContext.Provider
+      value={{ cards, addCard, getCardById, toggleBookmark, deleteCard }}
+    >
       {children}
     </CardContext.Provider>
   );

@@ -1,59 +1,253 @@
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, useWindowDimensions, View, ViewToken } from "react-native";
 import { router } from "expo-router";
 import { useCards } from "../../context/CardContext";
+import { FlatList } from "react-native-gesture-handler";
+import { MoveCard } from "@/types/card";
+import { useEffect, useRef, useState } from "react";
+import Ionicons from "@react-native-vector-icons/ionicons";
 
 export default function HomeScreen() {
 
   const { width } = useWindowDimensions();
 
-  const { cards } = useCards();
+  const { cards, toggleBookmark, deleteCard } = useCards();
 
-  const cardWidth = width * 0.72;
+  const [showFavoritesOnly, setShowFavoritesOnly] =
+    useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+
+  const favoriteCards = cards.filter(
+    (card) => card.isBookmarked
+  );
+
+  const displayedCards = showFavoritesOnly
+    ? favoriteCards
+    : cards;
+
+  function toggleFavoriteFilter() {
+    if (!showFavoritesOnly && favoriteCards.length === 0) {
+      Alert.alert("즐겨찾기 된 카드가 없습니다!");
+      return;
+    }
+
+    setShowFavoritesOnly((previousValue) => !previousValue);
+  }
+
+  function confirmDeleteCard(card: MoveCard) {
+    Alert.alert(
+      "카드 삭제",
+      `"${card.name}" 카드를 삭제할까요?`,
+      [
+        {
+          text: "취소",
+          style: "cancel",
+          onPress: () => setDeleteTargetId(null),
+        },
+        {
+          text: "삭제",
+          style: "destructive",
+          onPress: () => {
+            deleteCard(card.id);
+            setDeleteTargetId(null);
+          },
+        },
+      ]
+    );
+  }
+
+  const cardWidth = 214;
+  const cardGap = 20;
+  const Item_Size = cardWidth + cardGap;
+
+  const listRef = useRef<FlatList<MoveCard>>(null);
+  const middleIndex = cards.length > 0 ? Math.floor((cards.length - 1) / 2) : 0;
+  const [currentIndex, setCurrentIndex] = useState(middleIndex);
   const sideSpace = (width - cardWidth) / 2
 
+  const viewabliltyConfig = useRef({
+    itemVisiblePercentThreshold: 60,
+  }).current
+
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      const visibleIndex = viewableItems[0]?.index;
+
+      if (visibleIndex != null) {
+        setCurrentIndex(visibleIndex);
+      }
+    }
+  ).current;
+
+  function moveTofirst() {
+    if(cards.length === 0) return;
+    
+    listRef.current?.scrollToOffset({
+      offset: 0,
+      animated: true
+    })
+  }
+  const moveToLast = () => {
+    if (cards.length === 0) return;
+
+    listRef.current?.scrollToOffset({
+      offset: (cards.length - 1) * Item_Size,
+      animated: true,
+    });
+  }
+
+  useEffect(() => {
+    if(cards.length === 0) return;
+
+    const frame = requestAnimationFrame(() => {
+      listRef.current?.scrollToOffset({
+        offset: middleIndex * Item_Size,
+        animated: false
+      })
+    })
+    return () => cancelAnimationFrame(frame)
+  },[cards.length, middleIndex])
+
   return (
-    <View style={objects.container}>
-      <Text style={texts.text1}>나의 카드</Text>
+      <View style={objects.container}>
+        <View style={objects.header}>
+          <Text style={texts.text1}>나의 카드</Text>
+        </View>
+        
+        <View style={objects.card_section}>
 
-      <View style={objects.card_section}>
-        {cards.map((card) => (
-          <Pressable
-            key={card.id}
-            accessibilityRole="button"
-            accessibilityLabel={`${card.name} 카드 상세 보기`}
-            style={[
-              objects.transport_card,
-              {backgroundColor: card.color}
-            ]}
-            onPress={() => router.push(`/card-detail?id=${card.id}`)}
-          >
-            <Text style={texts.cardTitle}>{card.name}</Text>
+          <FlatList
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            snapToAlignment="start"
+            decelerationRate="fast"
+            disableIntervalMomentum
+            viewabilityConfig={viewabliltyConfig}
+            onViewableItemsChanged={onViewableItemsChanged}
+            snapToInterval={Item_Size}
+            ref={listRef}
+            style={{ width: "100%", height: 340, flexGrow: 0}}
+            contentContainerStyle={{
+              paddingHorizontal: sideSpace,
+              gap: 20
+            }}
+            
+            onMomentumScrollEnd={(event) => {
+              const offsetX = event.nativeEvent.contentOffset.x;
+              const calculatedIndex = Math.round(offsetX / Item_Size);
 
-            <Text style={texts.cardSubtitle} numberOfLines={3}>
-              {card.routeSteps.length > 0
-                ? card.routeSteps.map((step) => step.name).join(" → ")
-                : "경로 정보 없음"}
-            </Text>
-          </Pressable>
-        ))}
+              const safeIndex = Math.max(
+                0,
+                Math.min(calculatedIndex, cards.length)
+              );
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="교통카드 추가"
-          onPress={() => router.push("/add-card")}
-        >
-          <View style={objects.empty_card}>
-            <View style={objects.circle}>
-              <Text style={texts.plus}>+</Text>
+              setCurrentIndex(safeIndex);
+            }}
+
+            data={displayedCards}
+            keyExtractor={(card) => card.id}
+            renderItem={({ item }) => (
+              <Pressable
+                key={item.id}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.name} 카드 상세 보기`}
+                style={[
+                  objects.transport_card,
+                  {
+                    backgroundColor: item.color, borderStyle: "solid"}
+                ]}
+                onPress={() => router.push(`/card-detail?id=${item.id}`)}
+                onLongPress={() => {
+                  setDeleteTargetId((currentId) =>
+                    currentId === item.id ? null : item.id
+                  );
+                }}
+                delayLongPress={600}
+              >
+                <View style={texts.cardTitle_header}>
+                  <Text style={texts.cardTitle}>{item.name}</Text>
+                  <Pressable
+                  hitSlop={10}
+                    accessibilityRole="button"
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      toggleBookmark(item.id);
+                    }}
+                  >
+                    <Ionicons 
+                      name={item.isBookmarked ? "bookmark" : "bookmark-outline"}
+                      size={27}
+                      color={item.isBookmarked ? "#FFD43B" : "#000000"}
+                    />
+                  </Pressable>
+                </View>
+
+                <Text style={texts.cardSubtitle} numberOfLines={3}>
+                  {item.routeSteps.length > 0
+                    ? item.routeSteps.map((step) => step.name).join(" → ")
+                    : "경로 정보 없음"}
+                </Text>
+
+                {deleteTargetId === item.id && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${item.name} 카드 삭제`}
+                    style={objects.deleteButton}
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      confirmDeleteCard(item);
+                    }}
+                  >
+                    <Text style={texts.deleteButtonText}>삭제</Text>
+                  </Pressable>
+                )}
+              </Pressable>
+            )}
+            ListFooterComponent={
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="교통카드 추가"
+              onPress={() => router.push("/add-card")}
+            >
+              <View style={objects.empty_card}>
+                <View style={objects.circle}>
+                  <Text style={texts.plus}>+</Text>
+                </View>
+                <View style={texts.emptycard_message}>
+                  <Text>교통카드 추가</Text>
+                  <Text>눌러서 카드를 등록해 주세요</Text>
+                </View>
+              </View>
+            </Pressable>
+            }
+          />
+          <View style={objects.buttonContainer}>
+            <Pressable onPress={moveTofirst} disabled={cards.length === 0}>
+              <Ionicons name={cards.length <= 1 ? "play-skip-back-outline" : "play-skip-back"} 
+                size={25} 
+              /> 
+            </Pressable>
+            <View>
+              <Text style={texts.text3}>
+                {cards.length === 0 
+                  ? "0 / 0" : currentIndex >= cards.length 
+                    ? "추가" : `${currentIndex + 1} / ${cards.length}`}
+              </Text>
             </View>
-            <View style={texts.emptycard_message}>
-              <Text>교통카드 추가</Text>
-              <Text>눌러서 카드를 등록해 주세요</Text>
-            </View>
+            <Pressable onPress={moveToLast} disabled={cards.length === 0}>
+              <Ionicons name={cards.length <= 1 ? "play-skip-forward-outline" : "play-skip-forward"}  
+                size={25} 
+              />
+            </Pressable>
           </View>
-        </Pressable>
+          <View style={objects.favoriteContainer}>
+            <Pressable
+              onPress={toggleFavoriteFilter}
+            >
+              <Text>{showFavoritesOnly ? "전체 카드 보기" : "즐겨찾기"}</Text>
+            </Pressable>
+          </View>
+        </View>
       </View>
-    </View>
   );
 }
 
@@ -63,15 +257,36 @@ const objects = StyleSheet.create({
     alignItems: "flex-start",
     justifyContent: "flex-start",
     backgroundColor: "#ffff",
-    paddingHorizontal: 15,
     paddingBottom: 15,
+  },
+  buttonContainer: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 15,
+  },
+  favoriteContainer: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  deleteButton: {
+    width: "100%",
+    alignItems: "center",
+    paddingVertical: 10,
+    backgroundColor: "#D92D20",
+    borderRadius: 10,
+  },
+  header: {
+    paddingHorizontal: 15,
   },
   card_section: {
     flex: 1,
     width: "100%",
-    alignItems: "center",
+    alignItems: "stretch",
     marginTop: 100,
-    gap: 10
+    gap: 15
   },
   circle: {
     width: 56,
@@ -107,12 +322,17 @@ const objects = StyleSheet.create({
   },
   transport_card: {
     width: 214,
-    minHeight: 160,
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    borderRadius: 16,
-    borderWidth: 1.3,
+    height: 340,
+    paddingHorizontal: 15,
+    paddingVertical: 15,
+    alignItems: "flex-start",
     justifyContent: "space-between",
+    gap: 40,
+    borderWidth: 2,
+    borderStyle: "dashed",
+    borderColor: "rgba(10, 10, 10, 0.45)",
+    borderRadius: 16,
+    backgroundColor: "rgba(213, 213, 214, 0.5)",
   },
 });
 const texts = StyleSheet.create({
@@ -127,6 +347,10 @@ const texts = StyleSheet.create({
     fontWeight: "700",
     opacity: 0.7
   },
+  text3: {
+    fontSize: 20,
+    fontWeight: "700",
+  },
   emptycard_message: {
     alignItems: "center",
     alignContent: "center"
@@ -137,17 +361,29 @@ const texts = StyleSheet.create({
     fontWeight: "300",
     color: "rgba(0, 0, 0, 0.8)",
   },
+  cardTitle_header: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between"
+  },
   cardTitle: {
-    color: "#FFFFFF",
+    color: "#000000",
     fontSize: 20,
     fontWeight: "800",
+    textDecorationLine: "underline",
   },
-
   cardSubtitle: {
-    color: "#D1D5DB",
+    color: "#000000",
     fontSize: 13,
-    marginTop: 12,
     lineHeight: 18,
+    fontWeight: "300",
+    textDecorationLine: "underline",
+  },
+  deleteButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
   },
 });
 

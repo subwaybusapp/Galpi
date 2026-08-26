@@ -106,6 +106,7 @@ export default function AddCardScreen() {
       icon: "bus",
       useRoute,
       routeSteps: useRoute ? routeSteps : [],
+      isBookmarked: false
     };
 
     console.log("새 카드:", newCard);
