@@ -1,4 +1,4 @@
-export type RouteStepType = 'subway' | 'bus' | 'walk';
+export type RouteStepType = 'subway' | 'bus';
 
 export type SubwayDirection = '상행' | '하행' | '내선' | '외선';
 
@@ -40,3 +40,4 @@ export type MoveCard = {
   routeSteps: RouteStep[];
   isBookmarked: boolean;
 };
+

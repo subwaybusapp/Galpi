@@ -1,7 +1,6 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { Tabs } from "expo-router";
 
-
 export default function TabLayout() {
   return (
     <Tabs
@@ -24,21 +23,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
               name={focused ? "home" : "home-outline"}
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      />
-
-      <Tabs.Screen
-        name="search"
-        options={{
-          title: "검색",
-          tabBarLabel: "검색",
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? "search" : "search-outline"}
               size={size}
               color={color}
             />
