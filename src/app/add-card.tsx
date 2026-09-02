@@ -25,6 +25,7 @@ export default function AddCardScreen() {
   const [cardColor, setCardColor] = useState("rgba(213, 213, 214, 0.5)");
   const [isColoredSelected, setIsColoredSelected] = useState(false);
   const [useRoute, setUseRoute] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [routeSteps, setRouteSteps] = useState<RouteStep[]>([]);
   //지하철
@@ -93,9 +94,13 @@ export default function AddCardScreen() {
         .slice(0, 20)
       : [];
 
-  function handleSave() {
+  async function handleSave() {
     if (!trimmedName) {
       Alert.alert("카드 생성 필수조건을 입력해주세요!")
+      return;
+    }
+
+    if (isSaving) {
       return;
     }
 
@@ -109,13 +114,18 @@ export default function AddCardScreen() {
       isBookmarked: false
     };
 
-    console.log("새 카드:", newCard);
-
-    addCard(newCard);
-
-    setSavedName(trimmedName);
-    setName("");
-    router.back();
+    try {
+      setIsSaving(true);
+      await addCard(newCard);
+      setSavedName(trimmedName);
+      setName("");
+      router.back();
+    } catch (error) {
+      console.error("카드를 저장하지 못했습니다.", error);
+      Alert.alert("저장 실패", "카드를 저장하지 못했습니다. 다시 시도해 주세요.");
+    } finally {
+      setIsSaving(false);
+    }
   }
   function handleAddRouteStep() {
     if (!canAddRouteStep) {
@@ -479,7 +489,7 @@ export default function AddCardScreen() {
             <View>
               <Text style={texts.sectionTitle}>경로 정보 추가</Text>
               <Text style={texts.sectionDescription}>
-                카드 안에 지하철, 버스, 도보 단계를 넣을 수 있어요.
+                카드 안에 지하철, 버스 정보를 넣을 수 있어요.
               </Text>
             </View>
 
@@ -526,23 +536,6 @@ export default function AddCardScreen() {
                     ]}
                   >
                     버스
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  style={[
-                    objects.stepTypeButton,
-                    stepType === 'walk' && objects.stepTypeButtonActive,
-                  ]}
-                  onPress={() => setStepType('walk')}
-                >
-                  <Text
-                    style={[
-                      texts.stepTypeText,
-                      stepType === 'walk' && texts.stepTypeTextActive,
-                    ]}
-                  >
-                    도보
                   </Text>
                 </Pressable>
               </View>
@@ -1024,17 +1017,19 @@ export default function AddCardScreen() {
           )}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="카드 이름 저장"
-            accessibilityState={{ disabled: !trimmedName }}
-            disabled={!trimmedName}
+            accessibilityLabel="카드 저장"
+            accessibilityState={{ disabled: !trimmedName || isSaving }}
+            disabled={!trimmedName || isSaving}
             onPress={handleSave}
             style={({ pressed }) => [
               objects.saveButton,
-              !trimmedName && objects.saveButtonDisabled,
-              pressed && trimmedName && objects.saveButtonPressed,
+              (!trimmedName || isSaving) && objects.saveButtonDisabled,
+              pressed && trimmedName && !isSaving && objects.saveButtonPressed,
             ]}
           >
-            <Text style={texts.saveButtonLabel}>저장</Text>
+            <Text style={texts.saveButtonLabel}>
+              {isSaving ? "저장 중..." : "저장"}
+            </Text>
           </Pressable>
         </View>
       </View>

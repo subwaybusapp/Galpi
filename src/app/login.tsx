@@ -15,7 +15,7 @@ export default function Index() {
         id.trim(),
         pwd
       )
-      router.replace("/(tab)/(home)")
+      router.replace("/(tab)")
     } catch (error) {
       Alert.alert("로그인 실패", error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.")
     }
