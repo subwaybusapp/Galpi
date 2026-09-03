@@ -271,7 +271,7 @@ XML 응답을 파싱해 앱에서 사용하기 좋은 형태로 변환합니다.
 
 | 카드 저장 후 홈 화면 | 카드 상세 실시간 도착정보 |
 | --- | --- |
-| <img src="./screenshots/11_home_card_list_vertical.jpg" width="260" /> | <img src="./screenshots/12_card_detail_realtime_arrivals.jpg" width="260" /> |
+| <img src="./screenshots/11_home_bookmark_toggle" width="260" /> | <img src="./screenshots/12_card_detail_realtime_arrivals.jpg" width="260" /> |
 
 ### 5. 홈 화면 기능
 
