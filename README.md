@@ -259,13 +259,13 @@ XML 응답을 파싱해 앱에서 사용하기 좋은 형태로 변환합니다.
 
 ### 3. 경로 추가
 
-| 지하철 승차역 선택 | 지하철 하차역 선택 | 버스 노선 검색 |
+| 지하철 경로 추가 | 버스 노선 검색 | 버스 정류장 선택 |
 | --- | --- | --- |
-| <img src="./screenshots/06_subway_boarding_station_selected.jpg" width="220" /> | <img src="./screenshots/07_subway_destination_selected.jpg" width="220" /> | <img src="./screenshots/08_bus_route_search.jpg" width="220" /> |
+| <img src="./screenshots/06_subway_boarding_station_selected.jpg" width="220" /> | <img src="./screenshots/08_bus_route_search.jpg" width="220" /> | <img src="./screenshots/09_bus_stop_selection.jpg" width="220" /> |
 
-| 버스 정류장 선택 | 경로 추가 완료 |
-| --- | --- |
-| <img src="./screenshots/09_bus_stop_selection.jpg" width="260" /> | <img src="./screenshots/10_route_steps_added_and_save.jpg" width="260" /> |
+| 경로 추가 완료 |
+| --- |
+| <img src="./screenshots/10_route_steps_added_and_save.jpg" width="260" /> |
 
 ### 4. 카드 저장 및 상세 화면
 
