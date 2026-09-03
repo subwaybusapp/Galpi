@@ -41,6 +41,22 @@ export default function Index() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.hero}>
+          <Image
+            source={require("@/assets/galpi-splash-logo.png")}
+            style={styles.appLogo}
+            resizeMode="contain"
+          />
+
+          <View style={styles.titleBox}>
+            <Text style={styles.tagline}>나만의 이동 카드를 한눈에</Text>
+
+            <Text style={styles.title}>
+              <Text style={styles.titlePurple}>Gal</Text>
+              <Text style={styles.titleGreen}>pi</Text>
+            </Text>
+          </View>
+        </View>
         <View style={styles.form}>
           <TextInput
             value={id}
@@ -77,7 +93,7 @@ export default function Index() {
           >
             <Text style={styles.loginButtonText}>로그인</Text>
           </Pressable>
-          
+
           <Pressable
             accessibilityRole="button"
             onPress={() => router.push("/sign_up")}
@@ -116,8 +132,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 32,
+    paddingTop: 0,
+    paddingBottom: 100,
     gap: 18,
   },
   hero: {
@@ -131,8 +147,8 @@ const styles = StyleSheet.create({
     left: -40,
     top: 22,
     zIndex: 1,
-    width: "78%",
-    height: "88%",
+    width: "120%",
+    height: "130%",
   },
   titleBox: {
     position: "absolute",

@@ -20,7 +20,7 @@ export default function HomeScreen() {
   const { width } = useWindowDimensions();
 
   const { cards, toggleBookmark, deleteCard } = useCards();
-  const [ views, setViews ] = useState(true); // false가 scroll View / ture가 page View
+  const [views, setViews] = useState(true); // false가 scroll View / ture가 page View
 
   const [showFavoritesOnly, setShowFavoritesOnly] =
     useState(false);
@@ -34,14 +34,14 @@ export default function HomeScreen() {
     ? favoriteCards
     : cards;
 
-	async function handleLogout() {
-		try {
-			await signOut(auth);
-			router.replace("/login");
-		} catch {
-			Alert.alert("로그아웃 실패", "다시 시도해 주세요.");
-		}
-	}
+  async function handleLogout() {
+    try {
+      await signOut(auth);
+      router.replace("/login");
+    } catch {
+      Alert.alert("로그아웃 실패", "다시 시도해 주세요.");
+    }
+  }
 
   function toggleFavoriteFilter() {
     if (!showFavoritesOnly && favoriteCards.length === 0) {
@@ -121,8 +121,8 @@ export default function HomeScreen() {
   ).current;
 
   function moveTofirst() {
-    if(displayedCards.length === 0) return;
-    
+    if (displayedCards.length === 0) return;
+
     listRef.current?.scrollToOffset({
       offset: 0,
       animated: true
@@ -151,219 +151,219 @@ export default function HomeScreen() {
   }, [displayedCards.length, itemSize, middleIndex, views])
 
   return (
-      <View style={objects.container}>
-			<View style={objects.header}>
-				<Text style={texts.text1}>나의 카드</Text>
+    <View style={objects.container}>
+      <View style={objects.header}>
+        <Text style={texts.text1}>나의 카드</Text>
 
-				<Pressable
-					accessibilityRole="button"
-					accessibilityLabel="로그아웃"
-					hitSlop={8}
-					onPress={handleLogout}
-					style={({ pressed }) => [
-						objects.logoutButton,
-						pressed && objects.logoutButtonPressed,
-					]}
-				>
-					<Ionicons
-						name="log-out-outline"
-						size={18}
-						color="#6242C7"
-					/>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="로그아웃"
+          hitSlop={8}
+          onPress={handleLogout}
+          style={({ pressed }) => [
+            objects.logoutButton,
+            pressed && objects.logoutButtonPressed,
+          ]}
+        >
+          <Ionicons
+            name="log-out-outline"
+            size={18}
+            color="#6242C7"
+          />
 
-					<Text style={texts.logoutButtonText}>
-						로그아웃
-					</Text>
-				</Pressable>
-			</View>
-        <View style={objects.card_section}>
+          <Text style={texts.logoutButtonText}>
+            로그아웃
+          </Text>
+        </Pressable>
+      </View>
+      <View style={objects.card_section}>
 
-					<FlatList
-						key={views ? "horizontal" : "vertical"}
-						horizontal={views}
-						showsHorizontalScrollIndicator={false}
-						snapToAlignment={views ? "start" : undefined}
-						decelerationRate={views ? "fast" : "normal"}
-						disableIntervalMomentum={views}
-						viewabilityConfig={viewabliltyConfig}
-						onViewableItemsChanged={onViewableItemsChanged}
-						snapToInterval={views ? itemSize : undefined}
-						ref={listRef}
-						style={[
-							{ width: "100%" },
-							views
-								? { height: cardHeight, flexGrow: 0 }
-								: { flex: 1 },
-						]}
-						contentContainerStyle={{
-							paddingHorizontal: sideSpace,
-							paddingBottom: views ? 0 : 24,
-							gap: CARD_GAP
-						}}
-						onMomentumScrollEnd={(event) => {
-							if (!views) return;
+        <FlatList
+          key={views ? "horizontal" : "vertical"}
+          horizontal={views}
+          showsHorizontalScrollIndicator={false}
+          snapToAlignment={views ? "start" : undefined}
+          decelerationRate={views ? "fast" : "normal"}
+          disableIntervalMomentum={views}
+          viewabilityConfig={viewabliltyConfig}
+          onViewableItemsChanged={onViewableItemsChanged}
+          snapToInterval={views ? itemSize : undefined}
+          ref={listRef}
+          style={[
+            { width: "100%" },
+            views
+              ? { height: cardHeight, flexGrow: 0 }
+              : { flex: 1 },
+          ]}
+          contentContainerStyle={{
+            paddingHorizontal: sideSpace,
+            paddingBottom: views ? 0 : 24,
+            gap: CARD_GAP
+          }}
+          onMomentumScrollEnd={(event) => {
+            if (!views) return;
 
-							const offsetX = event.nativeEvent.contentOffset.x;
-							const calculatedIndex = Math.round(offsetX / itemSize);
+            const offsetX = event.nativeEvent.contentOffset.x;
+            const calculatedIndex = Math.round(offsetX / itemSize);
 
-							const safeIndex = Math.max(
-								0,
-								Math.min(calculatedIndex, displayedCards.length)
-							);
+            const safeIndex = Math.max(
+              0,
+              Math.min(calculatedIndex, displayedCards.length)
+            );
 
-							setCurrentIndex(safeIndex);
-						}}
+            setCurrentIndex(safeIndex);
+          }}
 
-						data={displayedCards}
-						keyExtractor={(card) => card.id}
-						renderItem={({ item }) => (
-							<Pressable
-								key={item.id}
-								accessibilityRole="button"
-								accessibilityLabel={`${item.name} 카드 상세 보기`}
-								style={[
-									objects.transport_card,
-									views
-										? { width: cardWidth, height: cardHeight }
-										: objects.verticalCard,
-									{
-										backgroundColor: item.color,
-										borderStyle: "solid",
-									},
-								]}
-								onPress={() => router.push(`/card-detail?id=${item.id}`)}
-								onLongPress={() => {
-									setDeleteTargetId((currentId) =>
-										currentId === item.id ? null : item.id
-									);
-								}}
-								delayLongPress={600}
-							>
-								<View style={texts.cardTitle_header}>
-									<Text style={texts.cardTitle}>{item.name}</Text>
-									<Pressable
-									hitSlop={10}
-										accessibilityRole="button"
-									onPress={(event) => {
-										event.stopPropagation();
-										void handleToggleBookmark(item.id);
-									}}
-									>
-										<Ionicons
-											name={item.isBookmarked ? "bookmark" : "bookmark-outline"}
-											size={27}
-											color={item.isBookmarked ? "#FFD43B" : "#000000"}
-										/>
-									</Pressable>
-								</View>
+          data={displayedCards}
+          keyExtractor={(card) => card.id}
+          renderItem={({ item }) => (
+            <Pressable
+              key={item.id}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.name} 카드 상세 보기`}
+              style={[
+                objects.transport_card,
+                views
+                  ? { width: cardWidth, height: cardHeight }
+                  : objects.verticalCard,
+                {
+                  backgroundColor: item.color,
+                  borderStyle: "solid",
+                },
+              ]}
+              onPress={() => router.push(`/card-detail?id=${item.id}`)}
+              onLongPress={() => {
+                setDeleteTargetId((currentId) =>
+                  currentId === item.id ? null : item.id
+                );
+              }}
+              delayLongPress={600}
+            >
+              <View style={texts.cardTitle_header}>
+                <Text style={texts.cardTitle}>{item.name}</Text>
+                <Pressable
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    void handleToggleBookmark(item.id);
+                  }}
+                >
+                  <Ionicons
+                    name={item.isBookmarked ? "bookmark" : "bookmark-outline"}
+                    size={27}
+                    color={item.isBookmarked ? "#FFD43B" : "#000000"}
+                  />
+                </Pressable>
+              </View>
 
-								<Text style={texts.cardSubtitle} numberOfLines={3}>
-									{item.routeSteps.length > 0
-										? item.routeSteps.map((step) => step.name).join(" → ")
-										: "경로 정보 없음"}
-								</Text>
+              <Text style={texts.cardSubtitle} numberOfLines={3}>
+                {item.routeSteps.length > 0
+                  ? item.routeSteps.map((step) => step.name).join(" → ")
+                  : "경로 정보 없음"}
+              </Text>
 
-								{deleteTargetId === item.id && (
-									<Pressable
-										accessibilityRole="button"
-										accessibilityLabel={`${item.name} 카드 삭제`}
-										style={objects.deleteButton}
-										onPress={(event) => {
-											event.stopPropagation();
-											confirmDeleteCard(item);
-										}}
-									>
-										<Text style={texts.deleteButtonText}>삭제</Text>
-									</Pressable>
-								)}
-							</Pressable>
-						)}
-						ListFooterComponent={
-						<Pressable
-							style={!views ? objects.verticalCardWrapper : undefined}
-							accessibilityRole="button"
-							accessibilityLabel="교통카드 추가"
-							onPress={() => router.push("/add-card")}
-						>
-							<View
-								style={[
-									objects.empty_card,
-									views
-										? { width: cardWidth, height: cardHeight }
-										: objects.verticalEmptyCard,
-								]}
-							>
-								<View style={objects.circle}>
-									<Text style={texts.plus}>+</Text>
-								</View>
-								<View style={texts.emptycard_message}>
-									<Text>교통카드 추가</Text>
-									<Text>눌러서 카드를 등록해 주세요</Text>
-								</View>
-							</View>
-						</Pressable>
-						}
-					/>
+              {deleteTargetId === item.id && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item.name} 카드 삭제`}
+                  style={objects.deleteButton}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    confirmDeleteCard(item);
+                  }}
+                >
+                  <Text style={texts.deleteButtonText}>삭제</Text>
+                </Pressable>
+              )}
+            </Pressable>
+          )}
+          ListFooterComponent={
+            <Pressable
+              style={!views ? objects.verticalCardWrapper : undefined}
+              accessibilityRole="button"
+              accessibilityLabel="교통카드 추가"
+              onPress={() => router.push("/add-card")}
+            >
+              <View
+                style={[
+                  objects.empty_card,
+                  views
+                    ? { width: cardWidth, height: cardHeight }
+                    : objects.verticalEmptyCard,
+                ]}
+              >
+                <View style={objects.circle}>
+                  <Text style={texts.plus}>+</Text>
+                </View>
+                <View style={texts.emptycard_message}>
+                  <Text>교통카드 추가</Text>
+                  <Text>눌러서 카드를 등록해 주세요</Text>
+                </View>
+              </View>
+            </Pressable>
+          }
+        />
 
-					<View style={objects.buttonContainer}>
-						<Pressable onPress={moveTofirst} disabled={displayedCards.length === 0}>
-							<Ionicons name={displayedCards.length <= 1 ? "play-skip-back-outline" : "play-skip-back"}
-								size={25}
-							/>
-						</Pressable>
-						{views && (
-							<View>
-								<Text style={texts.text3}>
-									{displayedCards.length === 0
-										? "0 / 0" : currentIndex >= displayedCards.length
-											? "추가" : `${currentIndex + 1} / ${displayedCards.length}`}
-								</Text>
-							</View>
-						)}
-						<Pressable onPress={moveToLast} disabled={displayedCards.length === 0}>
-							<Ionicons name={displayedCards.length <= 1 ? "play-skip-forward-outline" : "play-skip-forward"}
-								size={25}
-							/>
-						</Pressable>
-					</View>
+        <View style={objects.buttonContainer}>
+          <Pressable onPress={moveTofirst} disabled={displayedCards.length === 0}>
+            <Ionicons name={displayedCards.length <= 1 ? "play-skip-back-outline" : "play-skip-back"}
+              size={25}
+            />
+          </Pressable>
+          {views && (
+            <View>
+              <Text style={texts.text3}>
+                {displayedCards.length === 0
+                  ? "0 / 0" : currentIndex >= displayedCards.length
+                    ? "추가" : `${currentIndex + 1} / ${displayedCards.length}`}
+              </Text>
+            </View>
+          )}
+          <Pressable onPress={moveToLast} disabled={displayedCards.length === 0}>
+            <Ionicons name={displayedCards.length <= 1 ? "play-skip-forward-outline" : "play-skip-forward"}
+              size={25}
+            />
+          </Pressable>
+        </View>
 
-					<View style={objects.favoriteContainer}>
-						<Pressable
-							onPress={toggleFavoriteFilter}
-							style={({ pressed }) => [
-								objects.selectViewtoggle,
-								showFavoritesOnly && objects.favoriteToggleActive,
-								pressed && objects.togglePressed,
-							]}
-						>
-							{showFavoritesOnly ?
-								<Ionicons
-									name={"bookmark"}
-									size={33}
-									color={"#FFD43B"}
-								/> :
-								<Ionicons
-									name={"bookmark-outline"}
-									size={33}
-								/>
-							}
-						</Pressable>
-						<Pressable
-							onPress={changeView}
-							style={({ pressed }) => [
-								objects.selectViewtoggle,
-								pressed && objects.togglePressed,
-							]}
-						>
-							<Image
-								source={ views ? require('@/assets/ViewType_1.png') : require('@/assets/ViewType_2.png')}
-								style={objects.selectViewImage}
-								resizeMode="contain"
-							/>
-						</Pressable>
-					</View>
-				</View>
-		</View>
+        <View style={objects.favoriteContainer}>
+          <Pressable
+            onPress={toggleFavoriteFilter}
+            style={({ pressed }) => [
+              objects.selectViewtoggle,
+              showFavoritesOnly && objects.favoriteToggleActive,
+              pressed && objects.togglePressed,
+            ]}
+          >
+            {showFavoritesOnly ?
+              <Ionicons
+                name={"bookmark"}
+                size={33}
+                color={"#FFD43B"}
+              /> :
+              <Ionicons
+                name={"bookmark-outline"}
+                size={33}
+              />
+            }
+          </Pressable>
+          <Pressable
+            onPress={changeView}
+            style={({ pressed }) => [
+              objects.selectViewtoggle,
+              pressed && objects.togglePressed,
+            ]}
+          >
+            <Image
+              source={views ? require('@/assets/ViewType_1.png') : require('@/assets/ViewType_2.png')}
+              style={objects.selectViewImage}
+              resizeMode="contain"
+            />
+          </Pressable>
+        </View>
+      </View>
+    </View>
   );
 }
 
@@ -383,8 +383,8 @@ const objects = StyleSheet.create({
     paddingHorizontal: 15,
   },
   favoriteContainer: {
-		marginTop: "auto",
-		marginBottom: 50,
+    marginTop: "auto",
+    marginBottom: 50,
     flexDirection: "row",
     alignSelf: "center",
     alignItems: "center",
@@ -403,19 +403,19 @@ const objects = StyleSheet.create({
     backgroundColor: "#D92D20",
     borderRadius: 10,
   },
-	header: {
-		width: "100%",
-		paddingHorizontal: 15,
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "space-between",
-	},
+  header: {
+    width: "100%",
+    paddingHorizontal: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   card_section: {
     flex: 1,
     width: "100%",
     alignItems: "stretch",
-    marginTop: 100,
-    gap: 15
+    marginTop: 32,
+    gap: 15,
   },
   circle: {
     width: 56,
@@ -492,23 +492,23 @@ const objects = StyleSheet.create({
     width: 47,
     height: 47,
   },
-	logoutButton: {
-		minHeight: 30,
-		marginTop: 20,
-		paddingHorizontal: 13,
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "center",
-		gap: 5,
-		backgroundColor: "#EEE8FF",
-		borderWidth: 1,
-		borderColor: "#D9CDFF",
-		borderRadius: 12,
-	},
-	logoutButtonPressed: {
-		opacity: 0.65,
-		transform: [{ scale: 0.97 }],
-	},
+  logoutButton: {
+    minHeight: 30,
+    marginTop: 20,
+    paddingHorizontal: 13,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    backgroundColor: "#EEE8FF",
+    borderWidth: 1,
+    borderColor: "#D9CDFF",
+    borderRadius: 12,
+  },
+  logoutButtonPressed: {
+    opacity: 0.65,
+    transform: [{ scale: 0.97 }],
+  },
 });
 const texts = StyleSheet.create({
   text1: {
@@ -560,11 +560,11 @@ const texts = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
   },
-	logoutButtonText: {
-		color: "#6242C7",
-		fontSize: 14,
-		fontWeight: "700",
-	},
+  logoutButtonText: {
+    color: "#6242C7",
+    fontSize: 14,
+    fontWeight: "700",
+  },
 });
 
 /* (카드 생성 예시)
