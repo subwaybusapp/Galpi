@@ -10,9 +10,17 @@ const directionByIncreasingIndex: Record<string, SubwayDirection> = {
     "6호선": "상행",
     "7호선": "상행",
     "8호선": "상행",
-    "9호선": "하행"
-   
-    
+    "9호선": "하행",
+    "신분당선": "하행",
+    "수인분당선": "하행",
+    "경의선": "하행",
+    "공항철도": "상행",
+    "경춘선": "하행",
+    "우이신설경전철": "상행",
+    "신림선": "하행",
+    "용인경전철": "상행",
+
+
 };
 
 function getOppositeDirection(direction: SubwayDirection): SubwayDirection {
