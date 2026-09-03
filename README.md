@@ -240,3 +240,42 @@ XML 응답을 파싱해 앱에서 사용하기 좋은 형태로 변환합니다.
 - 카드 디자인 커스터마이징 기능 확장
 - 검색/상세 화면 UX 개선
 - 버스/지하철 상세 UI 통일성 강화
+
+## Screenshots
+
+앱의 주요 동작 흐름입니다.
+
+### 1. 로그인 및 회원가입
+
+| 로그인 | 회원가입 | 회원가입 성공 |
+| --- | --- | --- |
+| <img src="./screenshots/01_login_screen.jpg" width="220" /> | <img src="./screenshots/02_sign_up_input.jpg" width="220" /> | <img src="./screenshots/03_sign_up_success.jpg" width="220" /> |
+
+### 2. 카드 생성
+
+| 빈 홈 화면 | 카드 색상 설정 |
+| --- | --- |
+| <img src="./screenshots/04_home_empty_card.jpg" width="260" /> | <img src="./screenshots/05_add_card_color_custom.jpg" width="260" /> |
+
+### 3. 경로 추가
+
+| 지하철 승차역 선택 | 지하철 하차역 선택 | 버스 노선 검색 |
+| --- | --- | --- |
+| <img src="./screenshots/06_subway_boarding_station_selected.jpg" width="220" /> | <img src="./screenshots/07_subway_destination_selected.jpg" width="220" /> | <img src="./screenshots/08_bus_route_search.jpg" width="220" /> |
+
+| 버스 정류장 선택 | 경로 추가 완료 |
+| --- | --- |
+| <img src="./screenshots/09_bus_stop_selection.jpg" width="260" /> | <img src="./screenshots/10_route_steps_added_and_save.jpg" width="260" /> |
+
+### 4. 카드 저장 및 상세 화면
+
+| 카드 저장 후 홈 화면 | 카드 상세 실시간 도착정보 |
+| --- | --- |
+| <img src="./screenshots/11_home_card_list_vertical.jpg" width="260" /> | <img src="./screenshots/12_card_detail_realtime_arrivals.jpg" width="260" /> |
+
+### 5. 홈 화면 기능
+
+| 즐겨찾기 설정 | 즐겨찾기 카드 보기 | 보기 모드 전환 |
+| --- | --- | --- |
+| <img src="./screenshots/13_home_card_carousel_multiple.jpg" width="220" /> | <img src="./screenshots/14_home_card_carousel_one.jpg" width="220" /> | <img src="./screenshots/15_home_card_list_vertical.jpg" width="220" /> |
+  
